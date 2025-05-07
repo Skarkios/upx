@@ -148,17 +148,24 @@ if [[ $UPX_CONFIG_DISABLE_EXHAUSTIVE_TESTS != ON ]]; then
     set +x
     for method in nrv2b nrv2d nrv2e lzma; do
         for level in 1 2 3 4 5 6 7; do
-            s="${method}-${level}"
-            echo "========== $s =========="
-            "${run_upx[@]}" -qq --${method} -${level} --all-filters --debug-use-random-filter "${upx_self_exe}" ${fo} -o upx-packed-${s}${exe}
-            "${run_upx[@]}" -qq -l upx-packed-${s}${exe}
-            "${run_upx[@]}" -qq --fileinfo upx-packed-${s}${exe}
-            "${run_upx[@]}" -qq -t upx-packed-${s}${exe}
-            "${run_upx[@]}" -qq -d upx-packed-${s}${exe} ${fo} -o upx-unpacked-${s}${exe}
-            cmp -s upx-unpacked${exe} upx-unpacked-${s}${exe}
-            if [[ $UPX_CONFIG_DISABLE_RUN_PACKED_TEST != ON ]]; then
-                "${emu[@]}" ./upx-packed-${s}${exe} --version-short
-            fi
+            for small in normal small; do
+                s="${method}-${level}"
+                ss=
+                if [[ $small == "small" ]]; then
+                    s="${method}-${level}-${small}"
+                    ss="--small"
+                fi
+                echo "========== $s =========="
+                "${run_upx[@]}" -qq --${method} -${level} ${ss} --all-filters --debug-use-random-filter "${upx_self_exe}" ${fo} -o upx-packed-${s}${exe}
+                "${run_upx[@]}" -qq -l upx-packed-${s}${exe}
+                "${run_upx[@]}" -qq --fileinfo upx-packed-${s}${exe}
+                "${run_upx[@]}" -qq -t upx-packed-${s}${exe}
+                "${run_upx[@]}" -qq -d upx-packed-${s}${exe} ${fo} -o upx-unpacked-${s}${exe}
+                cmp -s upx-unpacked${exe} upx-unpacked-${s}${exe}
+                if [[ $UPX_CONFIG_DISABLE_RUN_PACKED_TEST != ON ]]; then
+                    "${emu[@]}" ./upx-packed-${s}${exe} --version-short
+                fi
+            done
         done
     done
 fi
