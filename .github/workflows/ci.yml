@@ -20,8 +20,8 @@ env:
   UPX_DEBUG_TEST_FLOAT_DIVISION_BY_ZERO: 1
   UPX_DEBUG_TEST_LIBC_QSORT: 1
   ZSTD_CLEVEL: 9
-  # 2025-03-05
-  ZIG_DIST_VERSION: 0.14.0
+  # 2025-05-21
+  ZIG_DIST_VERSION: 0.14.1
 
 jobs:
   job-rebuild-and-verify-stubs:
@@ -79,7 +79,6 @@ jobs:
         run: |
           git ls-files -z --others --ignored --exclude-standard ./src/stub | xargs -0r rm -v --
           find ./src/stub/src -type d -name tmp -print0 | xargs -0r rmdir -v --
-          #git status --ignored ./src/stub || true
           git status --ignored || true
 
   job-linux-cmake: # uses cmake + make
@@ -236,7 +235,7 @@ jobs:
           test -z "$HOMEBREW_PREFIX" && HOMEBREW_PREFIX="$(brew --prefix)"
           echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> $GITHUB_ENV
           # testsuite needs working "readlink -en" and "sha256sum -b"
-          packages="ninja parallel util-linux"
+          packages="parallel util-linux"
           test -e "$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin/readlink" || packages="$packages coreutils"
           if test -n "$packages"; then
             echo "===== brew leaves:"; brew leaves; echo "===== brew list:"; brew list --versions
@@ -337,6 +336,7 @@ jobs:
         include:
           - { name: windows-2019-amd64, os: windows-2019, vsversion: 2019, vsarch: amd64 }
           - { name: windows-2022-amd64, os: windows-2022, vsversion: 2022, vsarch: amd64 }
+          - { name: windows-2025-amd64, os: windows-2025, vsversion: 2022, vsarch: amd64 }
     name: ${{ format('{0}', matrix.name) }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -560,9 +560,11 @@ jobs:
           mkdir -p -v ~/.local/bin
           cd ~/.local/bin
           ZIG_DIST_NAME=zig-linux-x86_64-${ZIG_DIST_VERSION}
+          ZIG_DIST_NAME=zig-x86_64-linux-${ZIG_DIST_VERSION}
           #curl -sS -L -O https://ziglang.org/builds/${ZIG_DIST_NAME}.tar.xz
-          curl -sS -L -O https://ziglang.org/download/0.14.0/${ZIG_DIST_NAME}.tar.xz
+          curl -sS -L -O https://ziglang.org/download/0.14.1/${ZIG_DIST_NAME}.tar.xz
           ls -l ${ZIG_DIST_NAME}.tar.xz
+          file ${ZIG_DIST_NAME}.tar.xz || true
           tar -xoJf ${ZIG_DIST_NAME}.tar.xz
           rm ${ZIG_DIST_NAME}.tar.xz
           ln -s -v ${ZIG_DIST_NAME}/zig zig
