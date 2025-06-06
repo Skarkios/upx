@@ -220,8 +220,7 @@ jobs:
           # NOTE: macos does not have "env -C"; only with brew coreutils
           - { os: macos-13, gcc: gcc-12, gxx: g++-12, testsuite: true }
           - { os: macos-14, gcc: gcc-13, gxx: g++-13, testsuite: true }
-          # { os: macos-15, gcc: gcc-14, gxx: g++-14, testsuite: true }
-          - { os: macos-15, testsuite: true }
+          - { os: macos-15, gcc: gcc-13, gxx: g++-13, testsuite: true }
     name: ${{ format('{0} {1}{2}', matrix.os, matrix.xcode_version && 'xcode-' || '',  matrix.xcode_version) }}
     runs-on: ${{ matrix.os }}
     steps:
