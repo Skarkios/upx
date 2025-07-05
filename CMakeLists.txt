@@ -69,7 +69,9 @@ upx_cmake_include_hook(2_init)
 
 # Disallow in-source build. Note that you will still have to manually
 # clean up a few files if you accidentally try an in-source build.
-upx_disallow_in_source_build()
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    upx_disallow_in_source_build()
+endif()
 
 # global settings
 if(${CMAKE_VERSION} VERSION_GREATER "3.14.99" AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
