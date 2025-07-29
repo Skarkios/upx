@@ -145,7 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-22.04, use_extra: true, use_wine: true }
+          - { os: ubuntu-22.04, use_extra: true }
           - { os: ubuntu-24.04, use_extra: true, use_wine: true }
     name: ${{ format('{0}', matrix.os) }}
     runs-on: ${{ matrix.os }}
