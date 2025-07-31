@@ -423,6 +423,8 @@ tc.amd64-linux.elf.gcc  = amd64-linux-gcc-3.4.4 -fPIC -m64 -nostdinc -MMD -MT $@
 tc.amd64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables
 tc.amd64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
+#amd64-linux.elf-entry.h amd64-linux.elf-fold.h: tc.amd64-linux.elf.gcc += -DTEST_SIGSEGV
+
 amd64-linux.elf-entry.h: $(srcdir)/src/$$T.S
 	@echo; echo TARGET=$@  PATH=$(PATH); echo
 	$(call tc,gcc) -c -x assembler-with-cpp $< -o tmp/$T.bin
