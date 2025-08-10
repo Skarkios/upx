@@ -351,7 +351,7 @@ sigsegv_sigaction:
         mov $end_announce_sigaction - announce_sigaction,%edx  // arg3 len
         lea announce_sigaction(%rip),%rsi  // arg2 buf
         push $2; pop %rdi  // arg1 fd_stderr
-        push $__NR_write; pop %eax; syscall  // ignore error on write()
+        push $__NR_write; pop %rax; syscall  // ignore error on write()
 
         xor %esi,%esi  // arg2 O_RDONLY
         lea proc_self_maps(%rip),%arg1
@@ -396,25 +396,17 @@ minus_q:
 path_gdb:
         .asciz "/usr/bin/gdb"
 commands_gdb:
+        .ascii "set prompt\n"  // null string prompt
         .ascii "info inferiors\n"
+// ucontext_t, mcontext_t, gregset_t, gret_t, REG_xxx:   <sys/ucontext.h>
+// stack_t  <bits/types/stack_t.h>
+        .ascii "print \"r8 - r15\"\n"
+        .ascii "x/8xg $rdx + 5*8\n"
 
-        .ascii "print \"r8, r9\"\n"
-        .ascii "x/2xg $rdx + 5*8\n"
-        .ascii "print \"r10, r11\"\n"
-        .ascii "x/2xg\n"
-        .ascii "print \"r12, r13\"\n"
-        .ascii "x/2xg\n"
-        .ascii "print \"r14, r15\"\n"
-        .ascii "x/2xg\n"
-
-        .ascii "print \"rdi, rsi\"\n"
-        .ascii "x/2xg\n"
-        .ascii "print \"rbp, rbx\"\n"
-        .ascii "x/2xg\n"
-        .ascii "print \"rdx, rax\"\n"
-        .ascii "x/2xg\n"
-        .ascii "print \"rcx, rsp\"\n"
-        .ascii "x/2xg\n"
+        .ascii "print \"rdi, rsi, rbp, rbx\"\n"
+        .ascii "x/4xg\n"
+        .ascii "print \"rdx, rax, rcx, rsp\"\n"
+        .ascii "x/4xg\n"
         .ascii "print \"rip, efl\"\n"
         .ascii "x/2xg\n"
 
@@ -422,7 +414,10 @@ commands_gdb:
         .ascii "print \"faulting instr\"\n"
         .ascii "x/i $pc\n"
         .ascii "print \"fault context\"\n"
-        .ascii "x/24i $pc - 0x20\n"
+        .ascii "x/16i $pc - 0x20\n"
+
+        .ascii "print \"user stack\"\n"
+        .ascii "x/64xg *(long *)($rdx + 5*8 + 15*8)\n"
 
         .ascii "kill\n"
         .ascii "quit 1"
@@ -441,10 +436,10 @@ O_RDONLY= 0
         push $PATH_MAX; pop %arg3
 __NR_read= 0
         push $__NR_read; pop %rax; call sys_check
-        push $__NR_close; pop %eax; call sys_check
+        push $__NR_close; pop %rax; call sys_check
 
 __NR_getppid= 110
-        push $__NR_getppid; pop %eax; syscall
+        push $__NR_getppid; pop %rax; syscall
         push %rax; pop %rsi
         xor %eax,%eax; push %rax; push %rax  // decimal(pid) fits in 16 bytes
         push %rsp; pop %rdi; call unsimal
