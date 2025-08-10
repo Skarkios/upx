@@ -271,6 +271,17 @@ no_env_pse:
           add sp,sp,#MAX_ELF_HDR_64 + OVERHEAD  // un-alloca
         mov xfexp,x0  // entry address
 
+#if TEST_SIGSEGV
+// Uninstall SIGSEGV handler
+SIGSEGV= 11
+__NR_sigaction = 0x86  // 134
+        mov w3,#8  // minimal byte count
+        mov x2,#0  // no old
+        mov x1,#0  // no new
+        mov w0,#SIGSEGV
+        do_sys __NR_sigaction
+#endif // TEST_SIGSEGV
+
 // Discard pages of compressed input data (includes [ADRC,+LENC) )
         ldr x1,[xelfa,#p_memsz+sz_Phdr+sz_Ehdr]  // Phdr[C_TEXT= 1].p_memsz
         mov x0,xelfa  // hi &Elf64_Ehdr

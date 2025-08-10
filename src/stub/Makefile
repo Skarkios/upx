@@ -836,6 +836,8 @@ tc.arm64-linux.elf.gcc  = arm64-linux-gcc-4.9.2 -nostdinc -DDAISY_CHAIN=1 -MMD -
 tc.arm64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables
 tc.arm64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
+#arm64-linux.elf-entry.h arm64-linux.elf-fold.h: tc.arm64-linux.elf.gcc += -DTEST_SIGSEGV
+
 tc.arm64-expand.gcc = $(tc.arm64-linux.elf.gcc)
 tc.arm64-linux.elf-upxfd_linux.gcc = $(tc.arm64-linux.elf.gcc)
 

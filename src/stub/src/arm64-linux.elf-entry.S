@@ -76,12 +76,18 @@ PAGE_SIZE = -(~0<<PAGE_SHIFT)
 
 // /usr/include/asm-generic/unistd.h
 __NR_close    = 0x39  //  57
+__NR_execve   = 0xdd  // 221
 __NR_exit     = 0x5d  //  93
+__NR_fork     = 0xdc  // 220
+__NR_getppid  = 0xad  // 173
 __NR_memfd_create= 0x117  // 279
 __NR_mmap     = 0xde  // 222
 __NR_mprotect = 0xe2  // 226
 __NR_munmap   = 0xd7  // 215
 __NR_openat   = 0x38  //  56
+__NR_pipe2    = 0x3b  //  59
+__NR_read     = 0x3f  //  63
+__NR_sigaction = 0x86  // 134
   AT_FDCWD= -100
 __NR_write    = 0x40  //  64
 
@@ -154,6 +160,38 @@ _start: .globl _start
 #endif  /*}*/
         stp x0,x1,[sp,#-2*NBPW]!  // ABI: -static crt0 might pass data in x0,x1
         ldr wPrivAnon,mflg
+
+#if TEST_SIGSEGV
+// install SIGSEGV handler for debugging
+SIGSEGV= 11
+SA_SIGINFO= 4  // /usr/include/bits/sigaction.h
+SA_RESTORER= 0x04000000
+sa_sigaction = 0 * NBPW
+sa_flags     = 1 * NBPW
+sa_mask      = 3 * NBPW  // location of mask
+sa_restorer  = 4 * NBPW
+sa_frame = 8 * NBPW
+        adr x0,sigsegv_sigaction  // handler
+        mov x1,#SA_SIGINFO  // flag bits
+        stp x0,x1,[sp,-sa_frame]!  // .sa_sigaction, .sa_flags
+        str xzr,[sp,sa_mask]  // .sa_mask
+        str xzr,[sp,sa_restorer]
+
+        mov x3,#8  // 8 bytes  ==> 64 bits
+        mov x2,xzr  // do not save old_sigaction
+        mov x1,sp  // &new_sigaction
+        mov w0,#SIGSEGV
+        do_sys __NR_sigaction
+        add sp,sp,sa_frame
+
+#if 0  //{ TEST ONLY
+mov  x0,#0xc0;mov  x1,#0xc1;mov  x2,#0xc2;mov  x3,#0xc3;mov  x4,#0xc4;mov  x5,#0xc5;mov  x6,#0xc6;mov  x7,#0xc7
+mov  x8,#0xc8;mov  x9,#0xc9;mov x10,#0xca;mov x11,#0xcb;mov x12,#0xcc;mov x13,#0xcd;mov x14,#0xce;mov x15,#0xcf
+mov x16,#0xd0;mov x17,#0xd1;mov x18,#0xd2;mov x19,#0xd3;mov x20,#0xd4;mov x21,#0xd5;mov x22,#0xd6;mov x23,#0xd7
+mov x24,#0xd8;mov x25,#0xd9;mov x26,#0xda;mov x27,#0xdb;mov x28,#0xdc;mov x29,#0xdd;mov x30,#0xde
+    ldr x0,[x0]  // cause SIGSEGV
+#endif  //}
+#endif // TEST_SIGSEGV
 
         add x0,sp,#(1+ 2)*NBPW
         call zfind  // avoid feint of 0==argc;  out: x0= &envp
@@ -261,6 +299,154 @@ wmeth  .req w4
         bic w1,w1,#unmap_all_pages
         add xADRC,xelfa,x1  // &b_info of compressed input data
         jr lr  // goto unfolded stub
+
+#if TEST_SIGSEGV
+proc_self_cmdline:
+        .asciz "/proc/self/cmdline"
+announce_sigaction:
+        .asciz "\n\nSIGSEGV address space:\n"
+end_announce_sigaction:
+
+proc_self_maps:
+        .asciz "/proc/self/maps"
+minus_q:
+        .asciz "-q"
+path_gdb:
+        .asciz "/usr/bin/gdb"
+commands_gdb:
+        .ascii "set prompt\n"  // null string prompt
+        .ascii "info inferiors\n"
+        .ascii "print \"x0-x7\"\n"
+        .ascii "x/8xg $sp + 0x138\n"
+        .ascii "print \"x8-x15\"\n"
+        .ascii "x/8xg\n"
+        .ascii "print \"x16-x23\"\n"
+        .ascii "x/8xg\n"
+        .ascii "print \"x24-x30\"\n"
+        .ascii "x/7xg\n"
+        .ascii "set $pc = *(long *)($sp + 0x238)\n"
+        .ascii "print \"faulting instr\"\n"
+        .ascii "x/i $pc\n"
+        .ascii "print \"fault context\"\n"
+        .ascii "x/15i $pc - 7*4\n"
+      //.ascii "print \"intercept stack\"\n"
+      //.ascii "x/76xg $sp\n"
+        .ascii "set $sp = *(long *)($sp + 0x230)\n"
+        .ascii "print \"user stack\"\n"
+        .ascii "x/64xg $sp\n"
+        .ascii "kill\n"
+        .ascii "quit 1"
+        .byte 0
+commands_gdb_end:
+        .balign 4
+
+#define r_fd w19
+PATH_MAX= 4096
+child:
+#if 1  //{ pipe input to gdb
+        mov arg1w,#0; do_sys __NR_close  // fd_stdin
+        stp xzr,xzr,[sp,-2 * NBPW]!  // &fd_pipe[2]; 4 bytes each; but stack align
+        mov arg2w,#0
+        mov arg1,sp
+        do_sys __NR_pipe2  // read size will be 0 (fd_stdin)
+        add x16,sp,#4
+        ldr r_fd,[x16]  // write side of pipe
+        add sp,sp,#2*NBPW
+
+        mov w2,#commands_gdb_end - commands_gdb  // arg3 len
+        adr x1,commands_gdb  // arg2
+        mov w0,r_fd  // arg1 fd
+        do_sys __NR_write
+        mov w0,r_fd; do_sys __NR_close
+#endif  //}
+
+        sub sp,sp,#PATH_MAX
+        mov arg3w,#O_RDONLY
+        adr arg2,proc_self_cmdline
+        mov arg1,#-1  // fake FD_CWD
+        do_sys __NR_openat; mov r_fd,w0  // fd
+        mov arg2,sp  // buffer
+        mov arg3w,#PATH_MAX
+        do_sys __NR_read
+        mov arg1w,r_fd; do_sys __NR_close
+
+        do_sys __NR_getppid
+        stp xzr,xzr,[sp,-2 * NBPW]!  // decimal(pid) fits in 16 bytes
+        mov w1,w0; mov x0,sp; call unsimal
+
+        mov arg4,sp  // &"pid"  (result of unsimal)
+        add arg3,sp,#2 * NBPW  // cmdline argv[0]  [skip "pid"]
+        adr arg2,minus_q
+        adr arg1,path_gdb  // arg1  path
+        stp arg1,arg2,[sp,-6 *NBPW]!  // path_gdb, "-q"
+        stp arg3,arg4,[sp,2 *NBPW]  // argv[0], "pid"
+        str xzr,[sp,4 * NBPW]  // NULL
+        mov arg3,#0  // _envviron  BUG
+        mov arg2,sp  // &argv
+        do_sys __NR_execve
+0:
+        b 0b
+
+// ucontext_t, mcontext_t, gregset_t, gret_t, REG_xxx:   <sys/ucontext.h>
+// stack_t  <bits/types/stack_t.h>
+__restore_rt:
+    nop
+
+sigsegv_sigaction:
+        stp x1,x2,[sp,-2 * NBPW]  // save siginfo *, ucontext *
+// print /proc/self/maps of child (same as parent: the beauty of fork())
+        mov x2,#end_announce_sigaction - announce_sigaction  // arg3 len
+        adr x1,announce_sigaction  // arg2 buf
+        mov w0,#2  // arg1 fd_stderr
+        do_sys __NR_write
+
+        mov w2,#O_RDONLY  // arg3 flags
+        adr x1,proc_self_maps  // arg2 path
+        mov w0,#-1  // fake FD_CWD
+        do_sys __NR_openat
+        mov r_fd,w0  // fd_maps
+BUFLEN= 4096
+        sub sp,sp,#BUFLEN
+loop_maps:
+        mov x2,#BUFLEN  // arg3 buflen
+        mov x1,sp  // arg2 buffer
+        mov w0,r_fd  // arg1 fd_maps
+        do_sys __NR_read
+        cbz w0,done_maps
+        mov x2,x0  // arg3 buflen
+        mov x1,sp  // arg2 buf
+        mov w0,#2  // fd_stderr
+        do_sys __NR_write
+        b loop_maps
+done_maps:
+        add sp,sp,#BUFLEN  // discard buffer
+        mov x0,x16; do_sys __NR_close
+// end printing of /proc/self/maps
+
+        mov arg1,#0; mov arg2,#0; mov arg3,#0; mov arg4,#0  // paranoia
+        do_sys __NR_fork; cbz x0,child
+parent:
+        b parent  // spin; paused by gdb
+
+unsimal:  // (dst, value)
+        stp lr,xzr,[sp,-2 * NBPW]!; call 0f
+        ldp lr,x1,[sp],#2 * NBPW
+        strb w1,[x0]  // terminator
+        ret
+0:
+        mov  w2,#0xcccc
+        movk w2, 0xcccc, lsl 16  // 0xcccccccc ==> 4/5 as 32-bit fraction
+        umull x2,w1,w2
+        add x2,x2,#0x1000  // BUG?  unsimal(p, 730)
+        lsr x3,x2,35  // quo(value, 10)
+        add w2,w3,w3,lsl 2  // 5 * quo
+        sub w1,w1,w2,lsl 1  // rem = (val - (10 * quo))
+        stp lr,x1,[sp,-2 * NBPW]!
+        cbz x3,1f; mov w1,w3; call 0b
+1:
+        ldp lr,x1,[sp],#2 * NBPW; add w1,w1,#'0'; strb w1,[x0],#1
+        ret
+#endif // TEST_SIGSEGV
 
 zfind:
         ldr x1,[x0],#NBPW; cbnz x1,zfind
