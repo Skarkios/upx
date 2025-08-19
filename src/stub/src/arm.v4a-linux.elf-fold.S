@@ -255,6 +255,17 @@ r_elfa .req r9
         add sp,sp,#MAX_ELF_HDR_32 + OVERHEAD  @ un-alloca
         str r0,[sp,#F_ENTR]  @ entry address
 
+#if TEST_SIGSEGV
+// Uninstall SIGSEGV handler
+SIGSEGV= 11
+__NR_rt_sigaction= 67
+        mov arg4,#0
+        mov arg3,#0  // no old
+        mov arg2,#0  // no new
+        mov arg1,#SIGSEGV
+        do_sys __NR_rt_sigaction
+#endif // TEST_SIGSEGV
+
 // Map 1 page of /proc/self/exe so that it does not disappear
         ldr r0,[sp,#F_obinfo]; tst r0,#unmap_all_pages; bne no_map_pse
         mov arg6,#0  @ SEEK_SET offset

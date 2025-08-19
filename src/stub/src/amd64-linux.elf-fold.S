@@ -81,6 +81,7 @@ is_ptinterp=     (1<<0)
 
         .balign 8
 PAGE_MASK: .quad -1<<12  // default
+cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 
 // IN: [ADRX,+LENX): compressed data; [ADRU,+LENU): expanded fold (w/ upx_main2)
 // %rsp= %rbp= &F_ADRX; %r13= O_BINFO | is_ptinterp | unmap_all_pages
@@ -174,19 +175,11 @@ no_env_pse:
 */
 // rsp/ {OVERHEAD},ADRU,LENU,rdx,%entry,  argc,argv,0,envp,0,auxv,0,strings
         addq $OVERHEAD,%rsp  # Elf64_Ehdr temporary space
-        mov       %ebp,%ebx  # fd
+#define r_fd  ebx
+        mov       %ebp,%r_fd
         movq %rax,3*NBPW(%rsp)  # entry
 
-#if TEST_SIGSEGV
-// Uninstall SIGSEGV handler
-SIGSEGV= 11
-__NR_rt_sigaction= 13  // /usr/include/asm/unistd_64.h
-        push $8; pop %sys4  // sys_arg4 minimal byte count
-        xor %edx,%edx  // no old
-        xor %esi,%esi  // no new
-        push $SIGSEGV; pop %rdi
-        push $__NR_rt_sigaction; pop %eax; syscall
-#endif // TEST_SIGSEGV
+        call *cancel_sigsegv(%rip)
 
 sz_Ehdr= 8*NBPW
 e_type= 16
@@ -201,16 +194,16 @@ p_memsz= 5*NBPW
         movq %r13,%arg1; call munmap  # discard C_TEXT compressed data
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
-        test %ebx,%ebx; js no_pse_map
+        test %r_fd,%r_fd; js no_pse_map
         subq %arg6,%arg6  # 0 offset
-        mov %ebx,%arg5l  # fd
+        mov %r_fd,%arg5l  # fd
         push $MAP_PRIVATE; pop %arg4
         push $PROT_READ; pop %arg3
         mov $1<<12,%arg2l
         subl %arg1l,%arg1l  # 0
         call mmap
 
-        mov %ebx,%edi  # fd
+        mov %r_fd,%edi  # fd
         call close
 
 .macro NOTRACK

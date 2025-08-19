@@ -742,6 +742,9 @@ static int do_option(int optc, const char *arg) {
     case 678:
         opt->o_unix.android_old = true;
         break;
+    case 679:
+        opt->o_unix.catch_sigsegv = true;
+        break;
     // ps1/exe
     case 670:
         opt->ps1_exe.boot_only = true;
@@ -957,6 +960,7 @@ int main_get_options(int argc, char **argv) {
         {"android-shlib", 0, N, 676},
         {"force-pie", 0x90, N, 677},
         {"android-old", 0, N, 678},
+        {"catch-sigsegv", 0, N, 679},
         // ps1/exe
         {"boot-only", 0x90, N, 670},
         {"no-align", 0x90, N, 671},

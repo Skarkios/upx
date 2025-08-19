@@ -84,16 +84,16 @@ PATH_MAX= 4096
 #define OVERHEAD 2048
 #include "MAX_ELF_HDR.S"
 
-PAGE_MASK: .quad ~0<<12  // default
-get_page_mask: .globl get_page_mask
+PAGE_MASK: .quad ~0<<12  // default  D_PMASK
+cancel_sigsegv: .quad 0  // D_XSIGSEGV
+
+get_page_mask: .globl get_page_mask  // D_GETPM
         ldr x0,PAGE_MASK
         ret
-
-bits_privanon:  // known offset (NBPW + 2*4)
+bits_privanon:  // known offset (2*NBPW + 2*4)  D_PRIVANON
         .int MAP_PRIVATE | MAP_ANONYMOUS  // Linux default; else QNX
 
-fold_begin:  // known offset (NBPW + 3*4)
-////    bkpt  // DEBUG
+fold_begin:  // known offset D_FOLD = (2*NBPW + 3*4)
         b L10
 
 // In:  sp/ PMASK,LENC,ADRU,LENU, x0,x1, argc,argv,...
@@ -271,16 +271,8 @@ no_env_pse:
           add sp,sp,#MAX_ELF_HDR_64 + OVERHEAD  // un-alloca
         mov xfexp,x0  // entry address
 
-#if TEST_SIGSEGV
-// Uninstall SIGSEGV handler
-SIGSEGV= 11
-__NR_sigaction = 0x86  // 134
-        mov w3,#8  // minimal byte count
-        mov x2,#0  // no old
-        mov x1,#0  // no new
-        mov w0,#SIGSEGV
-        do_sys __NR_sigaction
-#endif // TEST_SIGSEGV
+        ldr x0,cancel_sigsegv
+        blr x0  // callr
 
 // Discard pages of compressed input data (includes [ADRC,+LENC) )
         ldr x1,[xelfa,#p_memsz+sz_Phdr+sz_Ehdr]  // Phdr[C_TEXT= 1].p_memsz

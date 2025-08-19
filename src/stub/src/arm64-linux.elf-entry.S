@@ -140,6 +140,13 @@ wszuf  .req w21
   xszuf  .req x21
 xFOLD  .req x20
 wPrivAnon .req w19
+cancel_SEGV .req x18
+
+D_PMASK=    0*NBPW
+D_XSIGSEGV= 1*NBPW
+D_GETPM=    2*NBPW
+D_PRIVANON= 2*NBPW + 2*4
+D_FOLD=     2*NBPW + 3*4  // .data space at start of unfold
 
 // http://infocenter.arm.com/help/topic/com.arm.doc.ihi0055b/IHI0055B_aapcs64.pdf
 // x18 is CLOBBERED: "The platform register"
@@ -160,9 +167,10 @@ _start: .globl _start
 #endif  /*}*/
         stp x0,x1,[sp,#-2*NBPW]!  // ABI: -static crt0 might pass data in x0,x1
         ldr wPrivAnon,mflg
+        adr cancel_SEGV,cancel_dummy
 
-#if TEST_SIGSEGV
-// install SIGSEGV handler for debugging
+  section ELFSIGSEGV
+// install SIGSEGV handler for debugging hardware and de-compressor
 SIGSEGV= 11
 SA_SIGINFO= 4  // /usr/include/bits/sigaction.h
 SA_RESTORER= 0x04000000
@@ -183,6 +191,8 @@ sa_frame = 8 * NBPW
         mov w0,#SIGSEGV
         do_sys __NR_sigaction
         add sp,sp,sa_frame
+        adr cancel_SEGV,cancel_sigsegv
+        b L300
 
 #if 0  //{ TEST ONLY
 mov  x0,#0xc0;mov  x1,#0xc1;mov  x2,#0xc2;mov  x3,#0xc3;mov  x4,#0xc4;mov  x5,#0xc5;mov  x6,#0xc6;mov  x7,#0xc7
@@ -191,116 +201,7 @@ mov x16,#0xd0;mov x17,#0xd1;mov x18,#0xd2;mov x19,#0xd3;mov x20,#0xd4;mov x21,#0
 mov x24,#0xd8;mov x25,#0xd9;mov x26,#0xda;mov x27,#0xdb;mov x28,#0xdc;mov x29,#0xdd;mov x30,#0xde
     ldr x0,[x0]  // cause SIGSEGV
 #endif  //}
-#endif // TEST_SIGSEGV
 
-        add x0,sp,#(1+ 2)*NBPW
-        call zfind  // avoid feint of 0==argc;  out: x0= &envp
-        call zfind; mov xauxv,x0  // &Elf64_auxv
-
-        sub sp,sp,#4*NBPW  // space for PMASK, SZPK2, ADRU, LENU
-F_PMASK= 0 * NBPW
-F_SZPK2= 1 * NBPW
-F_ADRU= 2 * NBPW
-F_LENU= 3 * NBPW
-
-// set xPMASK by finding actual page size in Elf64_auxv
-1:
-        ldp x1,x2,[x0],#2*NBPW
-        cmp w1,#AT_PAGESZ; beq 2f
-        cbnz w1,1b  // AT_NULL
-        mov x2,#PAGE_SIZE  // default
-2:
-        neg xPMASK,x2  // save for folded code
-        str xPMASK,[sp,#F_PMASK]
-
-        call main
-L00:
-        mov xFOLD,lr
-
-        mov w1,#MFD_EXEC  // flags
-0: // try memfd_create
-        adr x0,strupx
-        do_sys __NR_memfd_create
-        tbz w0,#31,ok_memfd  // success
-        cbz w1,no_memfd  // already failed twice
-        mov w1,wzr; b 0b  // try again without MFD_EXEC
-no_memfd:  // so try /dev/shm
-O_RDWR= 2
-O_DIRECTORY= 040000   //  0x04000
-O_TMPFILE= 020000000  // 0x400000
-        call 0f; .int 0700, O_RDWR|O_DIRECTORY|O_TMPFILE; .asciz "/dev/shm"
-        .balign 4; 0:
-        ldr w3,[lr],#4  // mode
-        ldr w2,[lr],#4  // flags
-        mov x1,lr  // name
-        mov w0,#AT_FDCWD
-        do_sys __NR_openat
-ok_memfd:
-        mov mfd,w0
-
-// alloca() for de-compressed stub
-        ldr w0,[xFOLD,#sz_unc + LBINFO - LxFOLD]  // .sz_unc of fold
-        mov fp,sp
-        sub x0,fp,x0
-        and x0,x0,#-2*NBPW
-        mov sp,x0
-
-src    .req x0
-lsrc   .req w1
-dst    .req x2
-ldst   .req x3
-xmeth  .req x4
-wmeth  .req w4
-
-// Decompress folded code of this stub
-        mov dst,x0  // ADRU
-        PUSH1(x1); mov ldst,sp  // &slot on stack; lzma uses for EOF
-        add src,    xFOLD,#sz_b_info + LBINFO - LxFOLD  // folded code
-        ldr lsrc,  [XFOLD,#sz_cpr    + LBINFO - LxFOLD]
-        ldrb wmeth,[xFOLD,#b_method  + LBINFO - LxFOLD]
-    TRACE(#1)
-        call f_expand  // decompress it
-        POP1(x8)  // discard lzma EOF
-
-    .unreq src
-    .unreq lsrc
-    .unreq dst
-    .unreq ldst
-    .unreq xmeth
-    .unreq wmeth
-
-        str xPMASK,[sp]  // propagate PAGE_MASK
-
-// Write de-compressed stub
-        ldr w2,[xFOLD,#sz_unc + LBINFO - LxFOLD]  // .sz_unc of fold
-        mov x1,sp
-        mov w0,mfd
-        do_sys __NR_write
-        mov sp,fp
-
-        mov arg6,#0  // beginning of file
-        mov arg5w,mfd
-        mov arg4w,#MAP_SHARED  // modes
-        mov arg3w,#PROT_READ|PROT_EXEC  // FIXME: add PROT_WRITE for DEBUG only
-        ldr arg2w,[xFOLD,#sz_unc + LBINFO - LxFOLD]
-        str arg2,[sp,#F_LENU]
-        mov arg1,#0  // addr (kernel chooses)
-        do_sys __NR_mmap; str x0,[sp,#F_ADRU]; mov xADRU,x0
-
-        mov arg1w,mfd
-        do_sys __NR_close
-
-// Use the unfolded stub
-        ldr wLENC,[sp,#F_SZPK2]
-        ldr w1,[xFOLD, #LOBINFO - LxFOLD]  // O_BINFO
-        add lr,xADRU,#3*4 + NBPW  // jmp to fold_begin
-        sub wLENC,wLENC,w1
-        str xLENC,[sp,#F_SZPK2]
-        bic w1,w1,#unmap_all_pages
-        add xADRC,xelfa,x1  // &b_info of compressed input data
-        jr lr  // goto unfolded stub
-
-#if TEST_SIGSEGV
 proc_self_cmdline:
         .asciz "/proc/self/cmdline"
 announce_sigaction:
@@ -364,7 +265,7 @@ child:
         mov arg3w,#O_RDONLY
         adr arg2,proc_self_cmdline
         mov arg1,#-1  // fake FD_CWD
-        do_sys __NR_openat; mov r_fd,w0  // fd
+        do_sys __NR_openat; mov r_fd,w0
         mov arg2,sp  // buffer
         mov arg3w,#PATH_MAX
         do_sys __NR_read
@@ -423,7 +324,7 @@ done_maps:
         mov x0,x16; do_sys __NR_close
 // end printing of /proc/self/maps
 
-        mov arg1,#0; mov arg2,#0; mov arg3,#0; mov arg4,#0  // paranoia
+        mov arg1,#0; mov arg2,#0  // paranoia
         do_sys __NR_fork; cbz x0,child
 parent:
         b parent  // spin; paused by gdb
@@ -434,10 +335,10 @@ unsimal:  // (dst, value)
         strb w1,[x0]  // terminator
         ret
 0:
-        mov  w2,#0xcccc
-        movk w2, 0xcccc, lsl 16  // 0xcccccccc ==> 4/5 as 32-bit fraction
+        mov  w2,#0xcccd
+        movk w2, 0xcccc, lsl 16  // 0xcccccccd ==> 4/5 as 32-bit fraction
         umull x2,w1,w2
-        add x2,x2,#0x1000  // BUG?  unsimal(p, 730)
+        //add x2,x2,#0x1000  // BUG?  unsimal(p, 730)
         lsr x3,x2,35  // quo(value, 10)
         add w2,w3,w3,lsl 2  // 5 * quo
         sub w1,w1,w2,lsl 1  // rem = (val - (10 * quo))
@@ -446,7 +347,131 @@ unsimal:  // (dst, value)
 1:
         ldp lr,x1,[sp],#2 * NBPW; add w1,w1,#'0'; strb w1,[x0],#1
         ret
-#endif // TEST_SIGSEGV
+
+cancel_sigsegv:
+        mov x3,#8  // 8 bytes  ==> 64 bits
+        mov x2,xzr  // no old
+        mov x1,xzr  // no new
+        mov w0,#SIGSEGV
+        do_sys __NR_sigaction
+        ret
+
+L300:
+
+  section ELFMAINX2
+        add x0,sp,#(1+ 2)*NBPW
+        call zfind  // avoid feint of 0==argc;  out: x0= &envp
+        call zfind; mov xauxv,x0  // &Elf64_auxv
+
+        sub sp,sp,#4*NBPW  // space for PMASK, SZPK2, ADRU, LENU
+F_PMASK= 0 * NBPW
+F_SZPK2= 1 * NBPW
+F_ADRU= 2 * NBPW
+F_LENU= 3 * NBPW
+
+// set xPMASK by finding actual page size in Elf64_auxv
+1:
+        ldp x1,x2,[x0],#2*NBPW
+        cmp w1,#AT_PAGESZ; beq 2f
+        cbnz w1,1b  // AT_NULL
+        mov x2,#PAGE_SIZE  // default
+2:
+        neg xPMASK,x2  // save for folded code
+        str xPMASK,[sp,#F_PMASK]
+
+        adr xelfa,sz_pack2
+        ldr w0,[xelfa]  // sz_pack2 causes unknown R_AARCH64_LD_PREL_LO19
+        str x0,[sp,#F_SZPK2]
+        sub xelfa,xelfa,w0,uxtw
+        call main
+        mov xFOLD,lr
+
+        mov w1,#MFD_EXEC  // flags
+0: // try memfd_create
+        adr x0,strupx
+        do_sys __NR_memfd_create
+        tbz w0,#31,ok_memfd  // success
+        cbz w1,no_memfd  // already failed twice
+        mov w1,wzr; b 0b  // try again without MFD_EXEC
+no_memfd:  // so try /dev/shm
+O_RDWR= 2
+O_DIRECTORY= 040000   //  0x04000
+O_TMPFILE= 020000000  // 0x400000
+        call 0f; .int 0700, O_RDWR|O_DIRECTORY|O_TMPFILE; .asciz "/dev/shm"
+        .balign 4; 0:
+        ldr w3,[lr],#4  // mode
+        ldr w2,[lr],#4  // flags
+        mov x1,lr  // name
+        mov w0,#AT_FDCWD
+        do_sys __NR_openat
+ok_memfd:
+        mov mfd,w0
+
+// alloca() for de-compressed stub
+        ldr w0,[xFOLD,#sz_unc + LBINFO - LxFOLD]  // .sz_unc of fold
+        mov fp,sp
+        sub x0,fp,x0
+        and x0,x0,#-2*NBPW
+        mov sp,x0
+
+src    .req x0
+lsrc   .req w1
+dst    .req x2
+ldst   .req x3
+xmeth  .req x4
+wmeth  .req w4
+
+// Decompress folded code of this stub
+        mov dst,x0  // ADRU
+        PUSH1(x1); mov ldst,sp  // &slot on stack; lzma uses for EOF
+        add src,    xFOLD,#sz_b_info + LBINFO - LxFOLD  // folded code
+        ldr lsrc,  [XFOLD,#sz_cpr    + LBINFO - LxFOLD]
+        ldrb wmeth,[xFOLD,#b_method  + LBINFO - LxFOLD]
+    TRACE(#1)
+        call f_expand  // decompress it
+        POP1(x8)  // discard lzma EOF
+
+    .unreq src
+    .unreq lsrc
+    .unreq dst
+    .unreq ldst
+    .unreq xmeth
+    .unreq wmeth
+
+        str xPMASK,[sp]  // propagate PAGE_MASK  D_PMASK
+        str cancel_SEGV,[sp, #D_XSIGSEGV]
+
+// Write de-compressed stub
+        ldr w2,[xFOLD,#sz_unc + LBINFO - LxFOLD]  // .sz_unc of fold
+        mov x1,sp
+        mov w0,mfd
+        do_sys __NR_write
+        mov sp,fp
+
+        mov arg6,#0  // beginning of file
+        mov arg5w,mfd
+        mov arg4w,#MAP_SHARED  // modes
+        mov arg3w,#PROT_READ|PROT_EXEC  // FIXME: add PROT_WRITE for DEBUG only
+        ldr arg2w,[xFOLD,#sz_unc + LBINFO - LxFOLD]
+        str arg2,[sp,#F_LENU]
+        mov arg1,#0  // addr (kernel chooses)
+        do_sys __NR_mmap; str x0,[sp,#F_ADRU]; mov xADRU,x0
+
+        mov arg1w,mfd
+        do_sys __NR_close
+
+// Use the unfolded stub
+        ldr wLENC,[sp,#F_SZPK2]
+        ldr w1,[xFOLD, #LOBINFO - LxFOLD]  // O_BINFO
+        add lr,xADRU,#D_FOLD  // jmp to fold_begin
+        sub wLENC,wLENC,w1
+        str xLENC,[sp,#F_SZPK2]
+        bic w1,w1,#unmap_all_pages
+        add xADRC,xelfa,x1  // &b_info of compressed input data
+        jr lr  // goto unfolded stub
+
+cancel_dummy:
+        ret
 
 zfind:
         ldr x1,[x0],#NBPW; cbnz x1,zfind
@@ -569,12 +594,8 @@ strupx:
         .asciz "upx"
         .balign 4
 
-main:
+main:  // In: w0= sz_pack2
 lr .req x30
-        add xelfa,lr,#sz_pack2 - L00  // &sz_pack2
-        ldr w0,[xelfa]
-        sub xelfa,xelfa,w0,uxtw
-        str x0,[sp,#F_SZPK2]
         callr lr
 LxFOLD:
 LOBINFO:

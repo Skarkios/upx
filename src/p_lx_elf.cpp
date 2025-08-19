@@ -1681,7 +1681,11 @@ PackLinuxElf32::buildLinuxLoader(
           || this->e_machine==Elf32_Ehdr::EM_MIPS
       ) { // main program with ELF2 de-compressor
         addLoader("ELFMAINX");
-
+        if (this->e_machine==Elf32_Ehdr::EM_ARM) { // hardware is more problematic
+            if (opt->o_unix.catch_sigsegv && hasLoaderSection("ELFSIGSEGV"))
+                addLoader("ELFSIGSEGV");
+            addLoader("ELFMAINX2");
+        }
         // Only if $ARCH-linux.elf-entry.S calls upx_mmap_and_fd instead of memfd_create
         if (this->e_machine != Elf32_Ehdr::EM_PPC
         &&  this->e_machine != Elf32_Ehdr::EM_MIPS)
@@ -1871,7 +1875,14 @@ PackLinuxElf64::buildLinuxLoader(
          ||  this->e_machine==Elf64_Ehdr::EM_AARCH64
          ||  this->e_machine==Elf64_Ehdr::EM_PPC64
         ) { // main program with ELF2 de-compressor
-        addLoader("ELFMAINX,ELFMAINZ,FOLDEXEC,IDENTSTR");
+        addLoader("ELFMAINX");
+        // NYI for PPC64 {
+        if (opt->o_unix.catch_sigsegv && hasLoaderSection("ELFSIGSEGV"))
+            addLoader("ELFSIGSEGV");
+        if (this->e_machine!=Elf64_Ehdr::EM_PPC64)
+            addLoader("ELFMAINX2");
+        // } end NYI for PPC64
+        addLoader("ELFMAINZ,FOLDEXEC,IDENTSTR");
         if (this->e_machine==Elf64_Ehdr::EM_PPC64
         &&  ehdri.e_ident[Elf64_Ehdr::EI_DATA]==Elf64_Ehdr::ELFDATA2MSB) {
             addLoader("ELFMAINZe");

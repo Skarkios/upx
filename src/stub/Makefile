@@ -423,8 +423,6 @@ tc.amd64-linux.elf.gcc  = amd64-linux-gcc-3.4.4 -fPIC -m64 -nostdinc -MMD -MT $@
 tc.amd64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables
 tc.amd64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
-#amd64-linux.elf-entry.h amd64-linux.elf-fold.h: tc.amd64-linux.elf.gcc += -DTEST_SIGSEGV
-
 amd64-linux.elf-entry.h: $(srcdir)/src/$$T.S
 	@echo; echo TARGET=$@  PATH=$(PATH); echo
 	$(call tc,gcc) -c -x assembler-with-cpp $< -o tmp/$T.bin
@@ -552,7 +550,6 @@ amd64-win64.pe.h : tc_objdump_disasm_options = -M intel-mnemonic
 
 tc.amd64-win64.pe.gcc  = amd64-linux-gcc-4.1.1 -m64 -nostdinc -DWINDOWS_BACK=1 -MMD -MT $@
 tc.amd64-win64.pe.gcc += -fno-exceptions -fno-asynchronous-unwind-tables
-tc.amd64-win64.pe.gcc += -mno-red-zone
 tc.amd64-win64.pe.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 tc.amd64-win64.pe.objdump = multiarch-objdump-2.23.90
 
@@ -835,8 +832,6 @@ arm64-linux.elf%.h : tc_bfdname = elf64-littleaarch64
 tc.arm64-linux.elf.gcc  = arm64-linux-gcc-4.9.2 -nostdinc -DDAISY_CHAIN=1 -MMD -MT $@
 tc.arm64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables
 tc.arm64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
-
-#arm64-linux.elf-entry.h arm64-linux.elf-fold.h: tc.arm64-linux.elf.gcc += -DTEST_SIGSEGV
 
 tc.arm64-expand.gcc = $(tc.arm64-linux.elf.gcc)
 tc.arm64-linux.elf-upxfd_linux.gcc = $(tc.arm64-linux.elf.gcc)

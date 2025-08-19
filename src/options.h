@@ -162,6 +162,7 @@ struct Options final {
         bool android_shlib;     // keep some ElfXX_Shdr for dlopen()
         bool android_old;       // < Android_10 ==> no memfd_create, inconsistent __NR_ftruncate
         bool force_pie;         // choose DF_1_PIE instead of is_shlib
+        bool catch_sigsegv;     // to debug hardware or de-compressor
     } o_unix;
     struct {
         bool boot_only;
