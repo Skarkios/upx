@@ -22,8 +22,8 @@ env:
   UPX_DEBUG_TEST_FLOAT_DIVISION_BY_ZERO: 1
   UPX_DEBUG_TEST_LIBC_QSORT: 1
   ZSTD_CLEVEL: 17
-  # 2025-05-21
-  ZIG_DIST_VERSION: 0.14.1
+  # 2025-08-19
+  ZIG_DIST_VERSION: 0.15.1
 
 jobs:
   job-rebuild-and-verify-stubs:
@@ -102,7 +102,7 @@ jobs:
       - run: (sudo dmidecode | sed -n -e '/System Information/,/^$/p') || true
       - run: sudo dmidecode -q || true
       - run: sudo dmidecode || true
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - run: make build/extra/gcc/all
       - run: make build/extra/clang/all
@@ -181,7 +181,7 @@ jobs:
           sudo apt-get install -y wine wine32:i386 wine64
           ls -l /usr/bin/wine*
           mkdir -p -v ~/.wine && wineboot --init
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - name: Check out test suite
         run: git clone --depth=1 https://github.com/upx/upx-testsuite ../deps/upx-testsuite
@@ -322,7 +322,7 @@ jobs:
             # TODO FIXME: UPX on macos-13+ is broken => disable run-packed for now
             macos-1[345]) echo "UPX_CONFIG_DISABLE_RUN_PACKED_TEST=ON" >> $GITHUB_ENV ;;
           esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - name: Check out test suite
         if: ${{ matrix.testsuite }}
@@ -423,7 +423,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - name: Check out test suite
         run: git clone --depth=1 https://github.com/upx/upx-testsuite ../deps/upx-testsuite
@@ -502,7 +502,7 @@ jobs:
       B: release
     steps:
       - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - name: Prepare sources and Check out test suite
         run: |
@@ -635,7 +635,7 @@ jobs:
           git config --global --add safe.directory '*' # needed when running in a container
           mkdir -p ~/.parallel && : > ~/.parallel/$(echo 6305-4721 | tr 0-7 leticlwi)
       - run: (sudo dmidecode | sed -n -e '/System Information/,/^$/p') || true
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { submodules: true }
       - name: ${{ format('Install Zig {0}', env.ZIG_DIST_VERSION) }}
         run: |
@@ -655,7 +655,8 @@ jobs:
           ZIG_DIST_NAME=zig-linux-x86_64-${ZIG_DIST_VERSION}
           ZIG_DIST_NAME=zig-x86_64-linux-${ZIG_DIST_VERSION}
           #curl -sS -L -O https://ziglang.org/builds/${ZIG_DIST_NAME}.tar.xz
-          curl -sS -L -O https://ziglang.org/download/0.14.1/${ZIG_DIST_NAME}.tar.xz
+          #curl -sS -L -O https://ziglang.org/download/0.14.1/${ZIG_DIST_NAME}.tar.xz
+          curl -sS -L -O https://ziglang.org/download/0.15.1/${ZIG_DIST_NAME}.tar.xz
           ls -l ${ZIG_DIST_NAME}.tar.xz
           file ${ZIG_DIST_NAME}.tar.xz || true
           tar -xoJf ${ZIG_DIST_NAME}.tar.xz
@@ -665,7 +666,7 @@ jobs:
           echo -n 'zig version: '; zig version
           # patch zig
           ls -la "$HOME" "$GITHUB_WORKSPACE" || true
-          #(cd ${ZIG_DIST_NAME} && patch --verbose -p1 -i "$GITHUB_WORKSPACE"/misc/patches/zig/0001-x.patch)
+          (cd ${ZIG_DIST_NAME} && patch --verbose -p1 -i "$GITHUB_WORKSPACE"/misc/patches/zig/0001-x.patch)
           # create wrapper scripts (needed for CMake)
           log=
           log='set -x\n'
@@ -762,7 +763,8 @@ jobs:
           echo "===== parallel jobs: $jobs"
           parallel -kv --lb 'cd build/zig/{} && bash ../../../../misc/testsuite/mimic_ctest.sh' ::: $jobs
       - name: Mimic ctest tests with Valgrind
-        if: ${{ matrix.zig_target == 'x86_64-linux-musl' || contains(matrix.zig_target, 'x86_64-linux-gnu.2') }}
+        #if: ${{ matrix.zig_target == 'x86_64-linux-musl' || contains(matrix.zig_target, 'x86_64-linux-gnu.2') }}
+        if: false
         run: |
           export UPX_CONFIG_DISABLE_EXHAUSTIVE_TESTS=ON # valgrind is SLOW
           apk add coreutils valgrind

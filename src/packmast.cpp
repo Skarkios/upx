@@ -56,7 +56,7 @@
 #include "p_wince_arm.h"
 
 /*************************************************************************
-//
+// dispatch to a concrete subclass of class PackerBase; see work.cpp
 **************************************************************************/
 
 PackMaster::PackMaster(InputFile *f, Options *o) noexcept : fi(f) {
