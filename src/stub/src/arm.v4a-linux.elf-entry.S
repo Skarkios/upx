@@ -126,21 +126,24 @@ __ARM_NR_cacheflush=  2 + __ARM_NR_BASE
 
   section ELFMAINX
 F_ADRX= 0*NBPW
+  F_obinfo= F_ADRX  // unmap_all_pages in lo bits
 F_LENX= 1*NBPW
 F_ELFA= 2*NBPW
-F_ADRU= 3*NBPW
-F_LENU= 4*NBPW
-F_R0=   5*NBPW
-F_R1=   6*NBPW
-F_ENTR= 7*NBPW
-  F_QFLG= F_ENTR
-F_SIZE= 8*NBPW
+F_SEGV= 3*NBPW
+F_ADRU= 4*NBPW
+F_LENU= 5*NBPW
+F_R0=   6*NBPW
+F_R1=   7*NBPW
+F_ENTR= 8*NBPW
+  F_qflg= F_ENTR  // QNX mmap flags
+F_SIZE= 9*NBPW
 
 // (read-only) .data space at start of unfolded code
 D_PMASK= 0*NBPW
-D_FNAME= 1*NBPW
-D_QFLG=  2*NBPW
-D_FOLD=  3*NBPW  // start of code
+D_QFLG=  1*NBPW
+D_FNAME= 2*NBPW
+D_XSEGV= 3*NBPW
+D_FOLD=  4*NBPW  // start of code
 
 r_pack2 .req r9
 r_pmask .req r8
@@ -150,21 +153,17 @@ sz_pack2= . - NBPW
 mflg:
         .word MFLG  // MAP_{PRIVATE|ANONYMOUS}  // QNX vs linux
 _start: .globl _start
-////  nop; bkpt  // DEBUG
-        stmdb sp!,{r0,r1,lr}  // ABI crt0 -static may have data here
-        sub sp,sp,#-3*NBPW + F_SIZE  // F_R0,F_R1 separately
-
-        ldr r1,sz_pack2
-        adr r0,sz_pack2
-        sub r0,r0,r1  @ elfaddr= &Elf_Ehdr of this program
-        str r0,[sp,#F_ELFA]
-        mov r_pack2,r1  @ save sz_pack2
-
-        ldr r0,mflg
-        str r0,[sp,#F_QFLG]
+////    nop; bkpt  // DEBUG
+        ldr r_pack2,sz_pack2
+        ldr r2,mflg
+        adr r3,sz_pack2
+        sub r3,r3,r_pack2  @ elfaddr= &Elf_Ehdr of this program
+        call 0f; cancel_dummy: ret; 0:
+        stmdb sp!,{r0,r1,r2}  // F_R0,F_R1,%F_ENTR(F_QFLG)
+        sub sp,sp,#2*NBPW  // space for F_ADRU, F_LENU
+        stmdb sp!,{r0,r1,r3,lr}  // %F_ADRX,%F_LENX,F_ELFA,F_SEGV
 
   section ELFSIGSEGV
-#if TEST_SIGSEGV  //{ #defined on -devel branch only; not seen on arm64 hardware
 // install SIGSEGV handler for debugging
 SIGSEGV= 11
 SA_SIGINFO= 4  // /usr/include/bits/sigaction.h
@@ -188,11 +187,21 @@ sa_frame = 5 * NBPW
         do_sys7t __NR_sigaction
         add sp,sp,#sa_frame
 
+        call 0f
+cancel_sigsegv:
+        mov  r3,#8  // space for 8 bytes of signal flags
+        mov r2,#0  // no old
+        mov r1,#0  // no new
+        mov r0,#SIGSEGV
+        do_sys7t __NR_sigaction
+        ret
+0:
+        str lr,[sp,#F_SEGV]
+
 #if 0  //{ TEST ONLY
 mov  r0,#0xc0;mov  r1,#0xc1;mov  r2,#0xc2;mov  r3,#0xc3;mov  r4,#0xc4;mov  r5,#0xc5;mov  r6,#0xc6;mov  r7,#0xc7
 mov  r8,#0xc8;mov  r9,#0xc9;mov r10,#0xca;mov r11,#0xcb;mov r12,#0xcc
     ldr r0,[r0]  // cause SIGSEGV
-#endif  //}
 #endif  //}
 
   section ELFMAINX2
@@ -259,10 +268,11 @@ mfd  .req old_sp
         mov mfd,r0
 //}{ r0 free, r1 busy
         add r4,r_unc,# 2*NBPW + D_FOLD
+        ldr r5,[sp,#F_SEGV]
         and r4,r4,   #-2*NBPW  // align displacement
-        ldr r3,[sp,#F_QFLG]
+        ldr r3,[sp,#F_qflg]
         mov r2,r_pmask
-        stmia r1,{r2,r3,r4}  // D_PMASK, D_QFLG, D_FNAME
+        stmia r1,{r2,r3,r4,r5}  // F_ADRU: D_PMASK, D_QFLG, D_FNAME, D_SEGV
   .unreq r_pmask
 
 // De-compress folded stage of stub
@@ -304,14 +314,13 @@ mfd  .req old_sp
         add r4,r0,r1  @ ADRX= &b_info | unmap_all_pages
         bic r1,r1,#unmap_all_pages
         sub r5,r_pack2,r1  @ LENX= sz_pack2 - O_BINFO
-        stmia sp,{r4,r5}  // F_ADRX, F_LENX
+        stmia sp,{r4,r5}  // sp: F_ADRX, F_LENX;  (sp no change)
 #if DEBUG  /*{*/
         stmdb sp!,{TRACE_REGS}; mov r0,#3; bl trace
 #endif  /*}*/
         ldr r12,[sp,#F_ADRU]
         add pc,r12,#D_FOLD  // goto unfolded code
 
-#if TEST_SIGSEGV  //{ #defined on -devel branch only; not seen on arm64 hardware
 proc_self_cmdline:
         .asciz "/proc/self/cmdline"
         .balign 4
@@ -337,7 +346,7 @@ child:
         mov arg3,#O_RDONLY
         adr arg2,proc_self_cmdline
         mov arg1,#FD_CWD
-        do_sys27t __NR_openat; mov r_fd,r0  // fd
+        do_sys7t2 __NR_openat; mov r_fd,r0  // fd
         mov arg2,sp  // buffer
         mov arg3,#PATH_MAX
         do_sys7t __NR_read
@@ -410,7 +419,7 @@ sigsegv_sigaction:
         mov arg3,#O_RDONLY  // flags
         adr arg2,proc_self_maps  // path
         mov arg1,#FD_CWD
-        do_sys27t __NR_openat; mov r_fd,r0  // fd_maps
+        do_sys7t2 __NR_openat; mov r_fd,r0  // fd_maps
 BUFLEN= 4096
         sub sp,sp,#BUFLEN
 loop_maps:
@@ -479,7 +488,7 @@ unsimal:  // (dst, value)
 1:
         ldmia sp!,{r1,lr}; add r1,r1,#'0'; strb r1,[r0],#1
         ret
-#endif  // TEST_SIGSEGV}
+
 
 zfind:
         ldr r1,[r0],#NBPW
