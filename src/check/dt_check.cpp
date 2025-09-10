@@ -1101,7 +1101,7 @@ void upx_compiler_sanity_check(void) noexcept {
     assert_noexcept(TestBELE<BE32>::test());
     assert_noexcept(TestBELE<BE64>::test());
     {
-        alignas(16) static constexpr byte dd[32] = {
+        alignas(16) static constexpr const byte dd[32] = {
             0, 0, 0, 0,    0,    0,    0,    0xff, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8, 0,
             0, 0, 0, 0x7f, 0x7e, 0x7d, 0x7c, 0x7b, 0x7a, 0x79, 0x78, 0,    0,    0,    0,    0};
         constexpr const byte *d = dd + 7;

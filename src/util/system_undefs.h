@@ -48,6 +48,7 @@
 #undef i386
 #undef large
 #undef linux
+#undef mc68000
 #undef mips
 #undef near
 #undef powerpc

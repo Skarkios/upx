@@ -384,9 +384,9 @@ inline constexpr bool is_bounded_array_v = is_bounded_array<T>::value;
 template <class T, class... Ts>
 struct is_same_all : public std::conjunction<std::is_same<T, Ts>...> {};
 template <class T, class... Ts>
-inline constexpr bool is_same_all_v = is_same_all<T, Ts...>::value;
-template <class T, class... Ts>
 struct is_same_any : public std::disjunction<std::is_same<T, Ts>...> {};
+template <class T, class... Ts>
+inline constexpr bool is_same_all_v = is_same_all<T, Ts...>::value;
 template <class T, class... Ts>
 inline constexpr bool is_same_any_v = is_same_any<T, Ts...>::value;
 

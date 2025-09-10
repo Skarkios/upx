@@ -25,6 +25,8 @@
    <markus@oberhumer.com>               <ezerotven+github@gmail.com>
  */
 
+// dispatch to a concrete subclass of class PackerBase; see work.cpp
+
 #include "conf.h"
 #include "file.h"
 #include "packmast.h"
@@ -56,7 +58,7 @@
 #include "p_wince_arm.h"
 
 /*************************************************************************
-// dispatch to a concrete subclass of class PackerBase; see work.cpp
+//
 **************************************************************************/
 
 PackMaster::PackMaster(InputFile *f, Options *o) noexcept : fi(f) {

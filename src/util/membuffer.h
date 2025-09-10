@@ -237,6 +237,7 @@ private:
 #endif
     };
     static Stats stats;
+
 #if DEBUG
     // debugging aid
     struct Debug {

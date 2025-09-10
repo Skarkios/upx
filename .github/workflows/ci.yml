@@ -681,7 +681,7 @@ jobs:
           [[ $ZIG_TARGET == mips-linux-musleabihf-* ]]   && ZIG_TARGET=mips-linux-musleabihf
           [[ $ZIG_TARGET == mipsel-linux-musleabi-* ]]   && ZIG_TARGET=mipsel-linux-musleabi
           [[ $ZIG_TARGET == mipsel-linux-musleabihf-* ]] && ZIG_TARGET=mipsel-linux-musleabihf
-          ZIG_TARGET=${ZIG_TARGET/i386-/x86-} # i386 => x86
+          ZIG_TARGET=${ZIG_TARGET/#i386-/x86-} # i386 => x86
           echo "ZIG_TARGET=$ZIG_TARGET" >> $GITHUB_ENV
           # update ZIG_FLAGS
           # -fPIE is for compilation only => also use the correct linker flag "-pie"
