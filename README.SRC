@@ -87,6 +87,7 @@ Developer quick start
           #   # apt-get update
           #   # apt-get install zlib1g-dev:i386 libc6-dev:i386
           #   # apt-get install crossbuild-essential-riscv64  # for example
+
           # aarch64-linux-gnu/4.9.2/cc1 needs libmpfr.so.4.  Make a symlink:
           #   # ln -s /usr/lib/x86_64-linux-gnu/libmpfr.so.6 /usr/lib/x86_64-linux-gnu/libmpfr.so.4
 
