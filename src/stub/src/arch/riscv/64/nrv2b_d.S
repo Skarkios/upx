@@ -50,6 +50,9 @@
         mv prov,sp
 #endif  // DEBUG_NRV }
 
+        li bits,1<<31  // empty; force refill
+        li len,0
+        li disp,-1  // initial displacement
         j top_n2b
 
 lit_n2b:
