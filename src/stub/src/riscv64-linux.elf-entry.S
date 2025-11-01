@@ -41,8 +41,11 @@ NBPW= 8
 /* These from /usr/include/unistd_64.h */
 __NR_close=     57
 __NR_exit=      93
+__NR_ftruncate= 64
 __NR_memfd_create= 279
 __NR_mmap=     222
+__NR_mprotect= 226
+__NR_msync=    227
 __NR_openat=    56
 __NR_write=     64
 
