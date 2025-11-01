@@ -29,13 +29,13 @@
    <jreiser@users.sourceforge.net>
 */
 
-	.text
+        .text
 #ifndef NO_METHOD_CHECK
         cmpb $ M_NRV2B_LE32,methb; jne not_n2b
 #endif
         li bits,1<<31  // empty; force refill
         li len,0
-	li disp,-1  // initial displacement
+        li disp,-1  // initial displacement
         j top_n2b
 
 #undef EOF
@@ -66,7 +66,7 @@ lenmore_n2b:
         getnextb(len)
         jnextb0n lenmore_n2b
 gotlen_n2b:
-	li t0,0x300; lui t0,0xfffff  # -0xd00
+        li t0,-0xd00
         sltu retbit,t0,disp
         add len,len,off; add len,len,retbit  # len += off + (disp < -0xd00)
         //NYI call copy@plt; .extern copy

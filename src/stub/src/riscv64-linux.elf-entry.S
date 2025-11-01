@@ -87,7 +87,7 @@ _start: .globl _start
 ////    nop; int3  # uncomment for debugging
 
         ld s0,0(sp)  // argc
-	addi s1,sp,NBPW  // argv
+        addi s1,sp,NBPW  // argv
         //NYI lea cancel_dummy(%rip),%r15
 
   section ELFMAINX2
@@ -108,30 +108,30 @@ D_PMASK= 0*NBPW
 D_XSIGSEGV= 1*NBPW
 
 // find auxv
-	slli t0,s0,3  // NBPW * argc
-	add t0,t0,a1  // end argv
+        slli t0,s0,3  // NBPW * argc
+        add t0,t0,a1  // end argv
 0: // find end of env
-	addi t0,t0,NBPW  // &env[k]
-	ld t1,(t0); bnez t1,0b
+        addi t0,t0,NBPW  // &env[k]
+        ld t1,(t0); bnez t1,0b
 
 // find AT_PAGESZ in auxv
-	addi t0,t0,NBPW  // &auxv
-	li a7,AT_PAGESZ  // desired key
+        addi t0,t0,NBPW  // &auxv
+        li a7,AT_PAGESZ  // desired key
 0:
-	ld t1,(t0); ld t2,NBPW(t0); addi t0,t0,2*NBPW
-	beq t1,a7,1f  // found it
-	bne t1,zero,0b  // keep searching
-	li t2,0x1000  // default PAGE_SIZE
+        ld t1,(t0); ld t2,NBPW(t0); addi t0,t0,2*NBPW
+        beq t1,a7,1f  // found it
+        bne t1,zero,0b  // keep searching
+        li t2,0x1000  // default PAGE_SIZE
 1:
-	sub a7,zero,t2  // PAGE_MASK
+        sub a7,zero,t2  // PAGE_MASK
 2:
 // Create anonymous temporary file on mfd; like upxfd_create
-	jal arg1,0f
+        jal arg1,0f
 str_upx:
-	.asciz "upx"
+        .asciz "upx"
 0:
-//	lla arg1,str_upx
-	li arg2,MFD_EXEC  // flags
+//        lla arg1,str_upx
+        li arg2,MFD_EXEC  // flags
         syscall __NR_memfd_create
         bne a0,zero,ok_memfd  // success
 no_memfd:  // so try /dev/shm
@@ -139,48 +139,47 @@ no_memfd:  // so try /dev/shm
 O_RDWR= 2
 O_DIRECTORY= 0200000  // 0x010000
 O_TMPFILE= 020000000  // 0x400000
-#	lla arg1,str_devmem
-	jal arg1,0f
+#        lla arg1,str_devmem
+        jal arg1,0f
 str_devmem:
-	.asciz "/dev/mem"
-	.balign 4
+        .asciz "/dev/mem"
+        .balign 4
 0:
         li arg2,0700  // mode
-	li arg3,O_RDWR | O_TMPFILE | O_DIRECTORY
-	syscall __NR_openat
+        li arg3,O_RDWR | O_TMPFILE | O_DIRECTORY
+        syscall __NR_openat
 ok_memfd:
 #define mfd s2
         mv mfd,rv
 
-	lla t0,sz_pack2
+        lla t0,sz_pack2
 #define elfa s3
-	lw t1,(t0); sub elfa,t0,t1
+        lw t1,(t0); sub elfa,t0,t1
 #define binf s4
-	lla binf,4+o_binfo
+        lla binf,4+o_binfo
 #define lenu s5
-	lw lenu,sz_unc(binf)
+        lw lenu,sz_unc(binf)
 #define szp2 s6
 #define lenx s7
-	sub lenx,szp2,binf
+        sub lenx,szp2,binf
 #define adrx s8
-	add adrx,elfa,binf
+        add adrx,elfa,binf
 
 #define old_sp s9
-	mv old_sp,sp
+        mv old_sp,sp
 // alloca()
-	sub sp,sp,lenu; andi sp,sp,-2*NBPW
+        sub sp,sp,lenu; andi sp,sp,-2*NBPW
 
 // Decompress the rest of this loader, and jump to it.
 
 #define dst  a2
 #define src  a0
 #define lsrc a1
-	mv dst,sp
-	lw lsrc,sz_cpr(binf)
-	lbu t0,b_method(binf); li t1,M_NRV2B_LE32|(0<<8); beq t0,t1,0f; ebreak
+        mv dst,sp
+        lw lsrc,sz_cpr(binf)
+        lbu t0,b_method(binf); li t1,M_NRV2B_LE32|(0<<8); beq t0,t1,0f; ebreak
 0:
-	add t0,lsrc,src; sw t0,F_EOF(old_sp)
-	
+        add t0,lsrc,src; sw t0,F_EOF(old_sp)
 //%rsp:
 //  MATCH_10  old_sp
 //  MATCH_11  &input_eof
@@ -204,7 +203,7 @@ ok_memfd:
 #define jnextb1np jnextb1yp
 #define jnextb1yp GETBITp; bne retbit,zero,
 #define GETBITp \
-	call getbit
+        call getbit
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
@@ -212,7 +211,7 @@ ok_memfd:
 #define jnextb1n jnextb1y
 #define jnextb1y GETBIT; bne retbit,zero,
 #define GETBIT \
-	call getbit
+        call getbit
 
 /* rotate next bit into bottom bit of reg */
 #define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,retbit
@@ -223,49 +222,49 @@ ok_memfd:
 #include "arch/riscv/64/nrv2b_d.S"
 
 getbit:
-	srli retbit,bits,63  # hi bit of 64
-	slli bits,bits,1; beq bits,zero,refill
-	ret
+        srli retbit,bits,63  # hi bit of 64
+        slli bits,bits,1; beq bits,zero,refill
+        ret
 /* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
         lw bits,(src); addi src,src,4
-	srli retbit,bits,31  # hi bit of 4 bytes fetched
-	slli bits,bits,1; lbu bytpre,(src)  # prefetch
-	ori  bits,bits,1  # the flag bit
-	slli bits,bits,32  # hi 32 bits in 64-bit register
-	ret
+        srli retbit,bits,31  # hi bit of 4 bytes fetched
+        slli bits,bits,1; lbu bytpre,(src)  # prefetch
+        ori  bits,bits,1  # the flag bit
+        slli bits,bits,32  # hi 32 bits in 64-bit register
+        ret
 
 n2b_EOFbad:
-	ebreak
+        ebreak
 eof_n2b:
-	lw t0,F_EOF(old_sp)
+        lw t0,F_EOF(old_sp)
         bne t0,src,n2b_EOFbad
 
 // Write de-compressed 'fold' to file
-	lw t0,F_PMASK(old_sp); sw t0,D_PMASK(sp)  // propagate PAGE_MASK
+        lw t0,F_PMASK(old_sp); sw t0,D_PMASK(sp)  // propagate PAGE_MASK
         lwu arg3,F_LENU(old_sp)
-	mv arg2,sp
-	mv arg1,mfd
+        mv arg2,sp
+        mv arg1,mfd
         mv s2,arg3  // LENU
 0:  // /dev/shm might be restricted to 8KiB at a time!
-	syscall __NR_write
+        syscall __NR_write
         add arg2,arg2,rv  // ptr += count
         sub  arg3,arg3,rv  // decrement count
-	bnez arg3,0b  // not finished
+        bnez arg3,0b  // not finished
 // de-alloca()
         mv sp,old_sp
 
 // Map unfolded code the SELinux way
         li arg6,0  // offset
         mv arg5,mfd
-	li arg4,MAP_SHARED
+        li arg4,MAP_SHARED
         li arg3,PROT_READ|PROT_EXEC  // FIXME: add PROT_WRITE for DEBUG only
-	mv arg2,s2  // LENU
+        mv arg2,s2  // LENU
         li arg1,0  // (%arg1)dst = 0;  // kernel chooses addr
-	syscall __NR_mmap
+        syscall __NR_mmap
         sw rv,F_ADRU(old_sp)
 
-	mv arg1,mfd
+        mv arg1,mfd
         syscall __NR_close
 
 // Use the copy.

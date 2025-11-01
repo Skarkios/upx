@@ -32,65 +32,65 @@
 .endm
 
 .macro syscall num
-	li a7,\num; ecall
+        li a7,\num; ecall
 .endm
 
 NBPW= 8
 
 .macro  PUSH4 a,b,c,d
-	addi sp,sp,-4*NBPW
-	sd \a,0*NBPW(sp)
-	sd \b,1*NBPW(sp)
-	sd \c,2*NBPW(sp)
-	sd \d,3*NBPW(sp)
+        addi sp,sp,-4*NBPW
+        sd \a,0*NBPW(sp)
+        sd \b,1*NBPW(sp)
+        sd \c,2*NBPW(sp)
+        sd \d,3*NBPW(sp)
 .endm
 
 .macro POP4 a,b,c,d
-	ld \a,0*NBPW(sp)
-	ld \b,1*NBPW(sp)
-	ld \c,2*NBPW(sp)
-	ld \d,3*NBPW(sp)
-	addi sp,sp,4*NBPW
+        ld \a,0*NBPW(sp)
+        ld \b,1*NBPW(sp)
+        ld \c,2*NBPW(sp)
+        ld \d,3*NBPW(sp)
+        addi sp,sp,4*NBPW
 .endm
 
 .macro  PUSH3 a,b,c
-	addi sp,sp,-4*NBPW
-	sd \a,0*NBPW(sp)
-	sd \b,1*NBPW(sp)
-	sd \c,2*NBPW(sp)
+        addi sp,sp,-4*NBPW
+        sd \a,0*NBPW(sp)
+        sd \b,1*NBPW(sp)
+        sd \c,2*NBPW(sp)
 .endm
 
 .macro POP3 a,b,c
-	ld \a,0*NBPW(sp)
-	ld \b,1*NBPW(sp)
-	ld \c,2*NBPW(sp)
-	addi sp,sp,4*NBPW
+        ld \a,0*NBPW(sp)
+        ld \b,1*NBPW(sp)
+        ld \c,2*NBPW(sp)
+        addi sp,sp,4*NBPW
 .endm
 
 .macro  PUSH2 a,b
-	addi sp,sp,-2*NBPW
-	sd \a,0*NBPW(sp)
-	sd \b,1*NBPW(sp)
+        addi sp,sp,-2*NBPW
+        sd \a,0*NBPW(sp)
+        sd \b,1*NBPW(sp)
 .endm
 
 .macro POP2 a,b,c
-	ld \a,0*NBPW(sp)
-	ld \b,1*NBPW(sp)
-	addi sp,sp,2*NBPW
+        ld \a,0*NBPW(sp)
+        ld \b,1*NBPW(sp)
+        addi sp,sp,2*NBPW
 .endm
 
 .macro  PUSH1 a
-	addi sp,sp,-2*NBPW
-	sd \a,0*NBPW(sp)
+        addi sp,sp,-2*NBPW
+        sd \a,0*NBPW(sp)
 .endm
 
 .macro POP1 a
-	ld \a,0*NBPW(sp)
-	addi sp,sp,2*NBPW
+        ld \a,0*NBPW(sp)
+        addi sp,sp,2*NBPW
 .endm
 
 .macro SUB2 dst,src
-	sub \dst,\dst,\src
+        sub \dst,\dst,\src
 .endm
 
 // vi:ts=8:et:nowrap

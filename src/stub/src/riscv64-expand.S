@@ -156,17 +156,17 @@ upx_mmap_and_fd: .globl upx_mmap_and_fd
 #define NO_METHOD_CHECK 1  /* subsumed here by daisy chain */
 
 getbit:
-	srli retbit,bits,63  # hi bit of 64
-	slli bits,bits,1; beq bits,zero,refill
-	ret
+        srli retbit,bits,63  # hi bit of 64
+        slli bits,bits,1; beq bits,zero,refill
+        ret
 /* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
         lw bits,(src); addi src,src,4
-	srli retbit,bits,31  # hi bit of 4 bytes fetched
-	slli bits,bits,1; lbu bytpre,(src)  # prefetch
-	ori  bits,bits,1  # the flag bit
-	slli bits,bits,32  # hi 32 bits in 64-bit register
-	ret
+        srli retbit,bits,31  # hi bit of 4 bytes fetched
+        slli bits,bits,1; lbu bytpre,(src)  # prefetch
+        ori  bits,bits,1  # the flag bit
+        slli bits,bits,32  # hi 32 bits in 64-bit register
+        ret
 
 /* jump on next bit {0,1} with prediction {y==>likely, n==>unlikely} */
 /* Prediction omitted for now. */
@@ -176,7 +176,7 @@ refill:
 #define jnextb1np jnextb1yp
 #define jnextb1yp GETBITp; bne retbit,zero,
 #define GETBITp \
-	call getbit
+        call getbit
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
@@ -184,7 +184,7 @@ refill:
 #define jnextb1n jnextb1y
 #define jnextb1y GETBIT; bne retbit,zero,
 #define GETBIT \
-	call getbit
+        call getbit
 
 /* rotate next bit into bottom bit of reg */
 #define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,retbit

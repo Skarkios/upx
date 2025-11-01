@@ -114,72 +114,72 @@ cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 fold_begin:
 ////    ebreak  # DEBUG
 // copy is_interp bit from r13 to F_ELFA(rbp)
-	ld t0,F_ELFA(rbp); andi t1,r13,is_ptinterp; or t0,t0,t1;
-	sd t0,F_ELFA(rbp)
+        ld t0,F_ELFA(rbp); andi t1,r13,is_ptinterp; or t0,t0,t1;
+        sd t0,F_ELFA(rbp)
 // if !unmap_all_pages then need space on stack for result of readlink("/proc/self/exe",...)
         mv rsi,rsp
-	  andi t0,r13,unmap_all_pages
-	  bnez t0,5f; li t0,PATH_MAX; sub rsp,rsp,t0; 0:
+          andi t0,r13,unmap_all_pages
+          bnez t0,5f; li t0,PATH_MAX; sub rsp,rsp,t0; 0:
         mv rdi,rsp
-	li rcx,8
+        li rcx,8
 0:  // copy down  ADRX,LDRX,ELFA,ADRU,LENU,rdx,%entry,argc
-	ld t0,(rsi); addi rsi,rsi,NBPW; addi rcx,rcx,-1
-	sd t0,(rdi); addi rdi,rdi,NBPW; bnez rcx,0b
+        ld t0,(rsi); addi rsi,rsi,NBPW; addi rcx,rcx,-1
+        sd t0,(rdi); addi rdi,rdi,NBPW; bnez rcx,0b
 
 5:
 0:  // copy down argv
-	ld t0,(rsi); addi rsi,rsi,NBPW
-	sd t0,(rdi); addi rdi,rdi,NBPW
-	bnez t0,0b
-	mv r14,rdi  // remember &new_env[0]
+        ld t0,(rsi); addi rsi,rsi,NBPW
+        sd t0,(rdi); addi rdi,rdi,NBPW
+        bnez t0,0b
+        mv r14,rdi  // remember &new_env[0]
 
-	andi t0,r13,unmap_all_pages; bnez t0,0f
-	sd zero,(rdi); addi rdi,rdi,NBPW  // space for new_env[0]
+        andi t0,r13,unmap_all_pages; bnez t0,0f
+        sd zero,(rdi); addi rdi,rdi,NBPW  // space for new_env[0]
 0:  // find old Elf64_auxv
-	ld t0,(rsi); sd t0,(rdi); bnez t0,0b
+        ld t0,(rsi); sd t0,(rdi); bnez t0,0b
         mv t2,rdi  # &old Elf64_auxv
 
 0:  // find &strings (beyond auxv)
-	ld t0,(rsi); ld t1,NBPW(rsi); addi rsi,rsi,2*NBPW
-	sd t0,(rdi); sd t1,NBPW(rdi); addi rdi,rdi,2*NBPW
-	bnez t0,0b
+        ld t0,(rsi); ld t1,NBPW(rsi); addi rsi,rsi,2*NBPW
+        sd t0,(rdi); sd t1,NBPW(rdi); addi rdi,rdi,2*NBPW
+        bnez t0,0b
         mv r15,rdi  # beyond auxv
         mv r13,rsi  # beginning of strings
         sub rdi,rdi,t2  # -length of auxv
 
-	andi t0,r13,unmap_all_pages; beqz t0,env_pse
+        andi t0,r13,unmap_all_pages; beqz t0,env_pse
         ori rfd,rfd,~0; mv r14,rdi;   j   no_env_pse  # no fd; beyond auxv
 env_pse:
-	li arg3,0  # O_RdONLY
-	lla arg2,proc_self_exe
-	li arg1,FD_CWD
+        li arg3,0  # O_RdONLY
+        lla arg2,proc_self_exe
+        li arg1,FD_CWD
         call openat; mv rfd,rv  # fd
 
         li arg3,-1+ PATH_MAX  # buflen
-	mv arg2,sp  # buffer
-	lla arg1,proc_self_exe
-	syscall __NR_readlink; bgez rv,0f
+        mv arg2,sp  # buffer
+        lla arg1,proc_self_exe
+        syscall __NR_readlink; bgez rv,0f
 // readlink() failed. Set the result equal to the argument.
         lla arg2,proc_self_exe  # failure result= "/proc/self/exe"
-	li rcx,15  # sizeof "/proc/self/exe"
+        li rcx,15  # sizeof "/proc/self/exe"
 0:
   // std
         addi rdi,r13,-1  # dst last byte
-	sb zero,(rdi)  # terminate
+        sb zero,(rdi)  # terminate
         addi rsi,arg2,-1
-	add rsi,rsi,rcx  # src last byte
+        add rsi,rsi,rcx  # src last byte
 0:  // slide up (hi end goes first)
-	lbu t0,(rsi); addi rsi,rsi,-1; addi rcx,rcx,-1
-	sb  t0,(rdi); addi rdi,rdi,-1; bnez rcx,0b
+        lbu t0,(rsi); addi rsi,rsi,-1; addi rcx,rcx,-1
+        sb  t0,(rdi); addi rdi,rdi,-1; bnez rcx,0b
 // add new env "   =..."
-	li t0,' '; sb t0,-3(rdi); sb t0,-2(rdi); sb t0,-1(rdi); addi rdi,rdi,-3
+        li t0,' '; sb t0,-3(rdi); sb t0,-2(rdi); sb t0,-1(rdi); addi rdi,rdi,-3
         sd rdi,(r14)  # new_env[0]
         andi rdi,rdi,-NBPW  # align
         mv rcx,r15
         sub rsp,rsp,rcx  # byte count
 
         addi rdi,rdi,-NBPW   # &last qword of new auxv
-	addi rsi,r15,-NBPW   # &last qword of old auxv
+        addi rsi,r15,-NBPW   # &last qword of old auxv
 
         // end of auxv must move by even number of NBPW
         mv t0,rdi
@@ -188,21 +188,21 @@ env_pse:
         sub rdi,rdi,t0
         mv r14,rdi  # &last qword of new auxv
 
-	srl rcx,rcx,3
+        srl rcx,rcx,3
 0:
-	ld t0,(rsi); addi rsi,rsi,-NBPW; addi rcx,rcx,-1
-	sd t0,(rdi); addi rdi,rdi,-NBPW; bnez rcx,0b
+        ld t0,(rsi); addi rsi,rsi,-NBPW; addi rcx,rcx,-1
+        sd t0,(rdi); addi rdi,rdi,-NBPW; bnez rcx,0b
         addi rsp,rdi,NBPW
   // cld
 
         add arg4,r14,r12; addi arg4,arg4,NBPW  # &new Elf64_auxv  %r12 dead
 no_env_pse:
-	ld arg1,F_ADRX(rbp)
-	ld arg2,F_LENX(rbp)
+        ld arg1,F_ADRX(rbp)
+        ld arg2,F_LENX(rbp)
         andi arg1,arg1,~(is_ptinterp | unmap_all_pages)
 
         ld arg5,F_ELFA(rbp)  # ELFA | is_ptinterp
-	andi t0,arg5,is_ptinterp; or arg4,arg4,t0  # transfer is_ptinterp to &new_ELF64_auxv
+        andi t0,arg5,is_ptinterp; or arg4,arg4,t0  # transfer is_ptinterp to &new_ELF64_auxv
         sub arg5,arg5,t0  # and clear from  ELFA
         mv  r13,arg5  # save ELFA
         addi rsp,rsp,-OVERHEAD
@@ -218,7 +218,7 @@ no_env_pse:
 // )
 
 // rsp/ {OVERHEAD},ADRU,LENU,rdx,%entry,  argc,argv,0,envp,0,auxv,0,strings
-	li t0,OVERHEAD
+        li t0,OVERHEAD
         add rsp,rsp,t0  # remove Elf64_Ehdr temporary space
 #define r_fd  ebx
         ld rfd,(rbp)  //NYI
@@ -239,7 +239,7 @@ p_memsz= 5*NBPW
         mv arg1,r13; call munmap  # discard C_TEXT compressed data
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
-	bltz rfd,no_pse_map
+        bltz rfd,no_pse_map
         li arg6,0  # 0 offset
         mv arg5,rfd
         li arg4,MAP_PRIVATE
@@ -252,7 +252,7 @@ p_memsz= 5*NBPW
         call close
 
 no_pse_map:
-	ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
+        ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
         ld arg2,F_LENU(rbp)
         li a7,__NR_munmap
         jr r14  # goto: syscall; pop %rdx; ret
@@ -268,7 +268,7 @@ my_bkpt: .globl my_bkpt
 
 proc_self_exe:
         .asciz "/proc/self/exe"
-	.balign 4
+        .balign 4
 
 upxfd_create: .globl upxfd_create // (char *tag, unsigned flags)
 0: // try memfd_create
@@ -276,11 +276,11 @@ upxfd_create: .globl upxfd_create // (char *tag, unsigned flags)
 O_RDWR= 2
 O_DIRECTORY= 0200000  // 0x010000
 O_TMPFILE= 020000000  // 0x400000
-	li arg4,0700  # mode
-	li arg3,O_RDWR|O_DIRECTORY|O_TMPFILE
-	la arg3,dev_shm
-	li arg1,FD_CWD
-	syscall __NR_openat
+        li arg4,0700  # mode
+        li arg3,O_RDWR|O_DIRECTORY|O_TMPFILE
+        la arg3,dev_shm
+        li arg1,FD_CWD
+        syscall __NR_openat
 ok_memfd:
         ret
 
@@ -293,27 +293,27 @@ mmap: .globl mmap
         li a7,__NR_mmap
 sysgo:
 sys_check:
-	ebreak  // sys_check
+        ebreak  // sys_check
         syscall 0 //NYI
 //NYI syscall error checking
         ret
 
 Psync: .globl Psync
         li a7,__NR_msync
-	j 5f
+        j 5f
 
 Pprotect: .globl Pprotect
-	li a7,__NR_mprotect
-	j 5f
+        li a7,__NR_mprotect
+        j 5f
 
 Punmap: .globl Punmap  // page-align the lo end
-	li a7,__NR_munmap
+        li a7,__NR_munmap
 5:
         ld t0,PAGE_MASK; xori t0,t0,~0  // frag mask
         and t0,t0,arg1  // frag
         sub arg1,arg1,t0
         add arg2,arg2,t0
-	j sysgo
+        j sysgo
 
 munmap: .globl munmap
         li a7,__NR_munmap; 5: j 5f
