@@ -27,21 +27,70 @@
 ;
 */
 
-#undef amd64
-#undef i386
-#undef i486
-#undef i586
-#undef x86_64
-
-                //.altmacro       // not supported by x86_64-linux-as-2.15
-
 .macro          section name
                 .section \name
-                .code64
 .endm
 
-.macro  endbr64
-        .byte 0xf3,0x0f,0x1e,0xfa
+.macro syscall num
+	li a7,\num; ecall
+.endm
+
+NBPW= 8
+
+.macro  PUSH4 a,b,c,d
+	addi sp,sp,-4*NBPW
+	sd \a,0*NBPW(sp)
+	sd \b,1*NBPW(sp)
+	sd \c,2*NBPW(sp)
+	sd \d,3*NBPW(sp)
+.endm
+
+.macro POP4 a,b,c,d
+	ld \a,0*NBPW(sp)
+	ld \b,1*NBPW(sp)
+	ld \c,2*NBPW(sp)
+	ld \d,3*NBPW(sp)
+	addi sp,sp,4*NBPW
+.endm
+
+.macro  PUSH3 a,b,c
+	addi sp,sp,-4*NBPW
+	sd \a,0*NBPW(sp)
+	sd \b,1*NBPW(sp)
+	sd \c,2*NBPW(sp)
+.endm
+
+.macro POP3 a,b,c
+	ld \a,0*NBPW(sp)
+	ld \b,1*NBPW(sp)
+	ld \c,2*NBPW(sp)
+	addi sp,sp,4*NBPW
+.endm
+
+.macro  PUSH2 a,b
+	addi sp,sp,-2*NBPW
+	sd \a,0*NBPW(sp)
+	sd \b,1*NBPW(sp)
+.endm
+
+.macro POP2 a,b,c
+	ld \a,0*NBPW(sp)
+	ld \b,1*NBPW(sp)
+	addi sp,sp,2*NBPW
+.endm
+
+.macro  PUSH1 a
+	addi sp,sp,-2*NBPW
+	sd \a,0*NBPW(sp)
+.endm
+
+.macro POP1 a
+	ld \a,0*NBPW(sp)
+	addi sp,sp,2*NBPW
+.endm
+
+.macro SUB2 dst,src
+	sub \dst,\dst,\src
 .endm
 
 // vi:ts=8:et:nowrap

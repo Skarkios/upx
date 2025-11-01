@@ -42,6 +42,8 @@ endif
 # ************************************************************************/
 
 ifndef STUBS
+STUBS += riscv64-linux.elf-entry.h
+STUBS += riscv64-linux.elf-fold.h
 STUBS += amd64-darwin.dylib-entry.h
 STUBS += amd64-darwin.macho-entry.h
 STUBS += amd64-darwin.macho-fold.h
@@ -320,7 +322,7 @@ define tc.default.f-embed_objinfo_without_xstrip_keep_dot_text
 	chmod a-x $1
 	$(call tc,objcopy)          -R .data -R .bss $1
 	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
-	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
+	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main --keep-symbol=str_upx $1
 #
 # Disassemble for human readability
 # objdump
@@ -2182,6 +2184,72 @@ powerpc64-linux.kernel.vmlinux-head.h : $(srcdir)/src/$$T.S
 	$(call tc,objcopy) --output-target binary --only-section .text tmp/$T.o tmp/$T.bin
 	$(call tc,bin2h) tmp/$T.bin $@
 
+# =====
+# /***********************************************************************
+# // riscv64-linux.elf
+# ************************************************************************/
+
+riscv64-linux.elf%.h : tc_list = riscv64-linux.elf default
+riscv64-linux.elf%.h : tc_bfdname = elf64-littleriscv64
+
+tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -nostdinc -MMD -MT $@
+tc.riscv64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables   # -fno-stack-protector
+tc.riscv64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
+
+tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy
+# Override of objcopy is needed because:
+#   multiarch-objcopy-2.17 -F elf64-littleriscv64 --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main tmp/riscv64-linux.elf-entry.bin
+#   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
+
+tc.riscv64-linux.elf.objdump = /usr/bin/riscv64-linux-gnu-objdump
+# Override of objdump is needed because:
+#   multiarch-objdump-2.17 -b elf64-littleriscv64  -Dr  tmp/riscv64-linux.elf-entry.bin | sed -e 's/[ 	]*$//' > tmp/riscv64-linux.elf-entry.bin.disasm
+#   multiarch-objdump-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
+#   multiarch-objdump-2.17 -b elf64-littleriscv64  -htr -w tmp/riscv64-linux.elf-entry.bin | sed -e 's/[ 	]*$//' | cat --squeeze-blank | sed -e '1{/^$/d}' -e '${/^$/d}' | sed -e '1s/^.*: *file format/file format/' -e 's/	/ /g' -e 's/ 00*/ 0/g' -e 's/CONTENTS.*/CONTENTS/' > tmp/riscv64-linux.elf-entry.bin.dump
+#   multiarch-objdump-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
+
+
+tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
+# Override of ld is needed because:
+#   multiarch-objcopy-2.17 -F elf64-littleriscv64 --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main tmp/riscv64-linux.elf-entry.bin
+#   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
+
+riscv64-linux.elf-entry.h : $(srcdir)/src/$$T.S
+	$(call tc,gcc) -c $< -o tmp/$T.bin
+	$(call tc,f-embed_objinfo,tmp/$T.bin)
+	$(call tc,bin2h) tmp/$T.bin $@
+
+riscv64-linux.elf-fold.h : $(srcdir)/src/$$T.lds \
+	    tmp/$$T.o \
+	    tmp/riscv64-linux.elf-help_umf.o \
+	    tmp/riscv64-linux.elf-upxfd_linux.o \
+	    tmp/riscv64-expand.o \
+	    tmp/riscv64-linux.elf-main2.o
+	$(call tc,ld) -r                    -Map tmp/$T.map $(filter %.o,$^) -o tmp/$T.bin
+	$(call tc,f-embed_objinfo_without_xstrip_keep_dot_text,tmp/$T.bin)
+	$(call tc,bin2h) tmp/$T.bin $@
+
+tmp/riscv64-linux.elf-fold.o : $(srcdir)/src/$$T.S
+	$(call tc,gcc) -c $< -o $@
+	$(call tc,f-objstrip,$@)
+
+tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
+	$(call tc,gcc) -c $< -o $@
+	$(call tc,f-objstrip,$@)
+
+tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
+	$(call tc,gcc) -c $< -o $@
+
+tmp/riscv64-linux.elf-upxfd_linux.o : $(srcdir)/src/upxfd_linux.c
+	$(call tc,gcc) -c -O $< -o $@
+	$(call tc,objcopy) --strip-unneeded --rename-section .text=UMF_LINUX \
+	    -R .riscv.attributes -R .data -R .bss -R .note.GNU-stack $@
+	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $@ | $(RTRIM) > $@.disasm
+
+tmp/riscv64-expand.o: $(srcdir)/src/$$T.S
+	$(call tc,gcc) -c $< -o $@
+
+# =====
 
 # /***********************************************************************
 # // dependencies

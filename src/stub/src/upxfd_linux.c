@@ -74,6 +74,16 @@ extern void my_bkpt(void const *, ...);
 /*und*/ : "x30"); \
     str; \
 })
+#elif defined(__riscv) //}{
+#define ANDROID_FRIEND 0
+#define addr_string(string) ({ \
+    char const *str; \
+    asm("jal 0f; .string \"" string "\"; .balign 4; 0: mv %0,ra" \
+/*out*/ : "=r"(str) \
+/* in*/ : \
+/*und*/ : "x30"); \
+    str; \
+})
 #else  //}{
 #define ANDROID_FRIEND 0
 #error  addr_string

@@ -77,6 +77,16 @@ extern void my_bkpt(void *, ...);
 /*und*/ : "x30"); \
     str; \
 })
+#elif defined(__riscv) //}{
+#define ANDROID_FRIEND 0
+#define addr_string(string) ({ \
+    char const *str; \
+    asm("jal 0f; .string \"" string "\"; .balign 4; 0: mv %0,ra" \
+/*out*/ : "=r"(str) \
+/* in*/ : \
+/*und*/ : "x30"); \
+    str; \
+})
 #else  //}{
 #error;
 #endif  //}
@@ -268,6 +278,36 @@ make_hatch(
             ((int *)hatch)[0] = code[0];  // endbr64
             ((int *)hatch)[1] = code[1];  // syscall; pop %arg3{%rdx}; pop %rax
             ((int *)hatch)[2] = code[2];  // notrack jmp *%rax; nop
+        }
+        else { // Does not fit at hi end of .text, so must use a new page "permanently"
+            int mfd = upxfd_create(addr_string("upx"), MFD_EXEC);  // the directory entry
+            write(mfd, &code, sizeof(code));
+            hatch = mmap(0, sizeof(code), PROT_READ|PROT_EXEC, MAP_SHARED, mfd, 0);
+            close(mfd);
+        }
+    }
+    DPRINTF("hatch=%%p\\n", hatch);
+    return hatch;
+}
+#elif defined(__riscv)  //{
+static void *
+make_hatch(
+    ElfW(Phdr) const *const phdr,
+    char *next_unc,
+    unsigned const frag_mask
+)
+{
+    unsigned long a = (unsigned long)next_unc;
+    int *hatch = (int *)((3u & -a) + a);
+    int code[3] =  {
+        0,0,0  //NYI illegal instruction
+    };
+    DPRINTF("make_hatch %%p %%p %%x\\n", phdr, next_unc, frag_mask);
+    if (phdr->p_type==PT_LOAD && phdr->p_flags & PF_X) {
+        if (sizeof(code) <= (unsigned)(frag_mask & -(long)hatch)) {
+            hatch[0] = code[0];
+            hatch[1] = code[1];
+            hatch[2] = code[2];
         }
         else { // Does not fit at hi end of .text, so must use a new page "permanently"
             int mfd = upxfd_create(addr_string("upx"), MFD_EXEC);  // the directory entry
@@ -660,7 +700,7 @@ upx_main2(  // returns entry address
 /*arg4*/    ElfW(auxv_t) *const av
 #if defined(__x86_64)  //{
 /*arg5*/    , ElfW(Addr) elfaddr  // In: &ElfW(Ehdr) for stub
-#elif defined(__aarch64__) //}{
+#elif defined(__aarch64__) || defined(__riscv) //}{
 /*arg5*/    , ElfW(Addr) elfaddr
 #elif defined(__powerpc64__)  //}{
 /*arg5*/    , ElfW(Addr) *p_reloc  // In: &ElfW(Ehdr) for stub; Out: 'slide' for PT_INTERP
@@ -681,7 +721,7 @@ upx_main2(  // returns entry address
     // ehdr = Uncompress Ehdr and Phdrs
     unpackExtent(&xi2, &xo);  // never filtered?
 
-#if defined(__x86_64) || defined(__aarch64__)  //{
+#if defined(__x86_64) || defined(__aarch64__) || defined(__riscv)  //{
     ElfW(Addr) *const p_reloc = &elfaddr;
 #endif  //}
     ElfW(Addr) page_mask = get_page_mask(); (void)page_mask;

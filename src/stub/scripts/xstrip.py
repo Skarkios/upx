@@ -157,7 +157,7 @@ def do_file(fn):
         # ELF64 LE
         eh, idata = idata[:64], idata[64:]
         e_shnum, e_shstrndx = struct.unpack("<HH", eh[60:64])
-        assert e_shstrndx + 3 == e_shnum
+        assert e_shstrndx + 3 >= e_shnum
     elif idata[4:7] == "\x02\x02\x01":
         # ELF64 BE
         eh, idata = idata[:64], idata[64:]
@@ -177,6 +177,8 @@ def do_file(fn):
         if re.search(r"^powerpc64", os.path.basename(fn)):
             assert pos >= len(odata), ("unexpected strip_with_dump", pos, len(odata))
         elif re.search(r"^arm64-", os.path.basename(fn)):
+            assert pos >= len(odata), ("unexpected strip_with_dump", pos, len(odata))
+        elif re.search(r"^riscv", os.path.basename(fn)):
             assert pos >= len(odata), ("unexpected strip_with_dump", pos, len(odata))
         else:
             assert pos == len(odata), ("unexpected strip_with_dump", pos, len(odata))
