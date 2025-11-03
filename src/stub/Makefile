@@ -2193,11 +2193,11 @@ powerpc64-linux.kernel.vmlinux-head.h : $(srcdir)/src/$$T.S
 riscv64-linux.elf%.h : tc_list = riscv64-linux.elf default
 riscv64-linux.elf%.h : tc_bfdname = elf64-littleriscv64
 
-tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -nostdinc -MMD -MT $@
+tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -O -nostdinc -MMD -MT $@
 tc.riscv64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables   # -fno-stack-protector
 tc.riscv64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
-tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy
+tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attrbutes -R .eh_frame
 # Override of objcopy is needed because:
 #   multiarch-objcopy-2.17 -F elf64-littleriscv64 --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main tmp/riscv64-linux.elf-entry.bin
 #   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target

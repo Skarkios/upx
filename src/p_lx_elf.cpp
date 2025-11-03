@@ -1195,6 +1195,11 @@ Linker* PackLinuxElf64arm::newLinker() const
     return new ElfLinkerArm64LE;
 }
 
+Linker* PackLinuxElf64riscv64::newLinker() const
+{
+    return new ElfLinkerRiscv64LE;
+}
+
 int const *
 PackLinuxElf::getCompressionMethods(int method, int level) const
 {
@@ -1252,6 +1257,15 @@ PackLinuxElf64amd::getFilters() const
 
 int const *
 PackLinuxElf64arm::getFilters() const
+{
+    static const int filters[] = {
+        0x52,
+    FT_END };
+    return filters;
+}
+
+int const *
+PackLinuxElf64riscv64::getFilters() const
 {
     static const int filters[] = {
         0x52,
@@ -1393,9 +1407,18 @@ PackLinuxElf64amd::PackLinuxElf64amd(InputFile *f)
 }
 
 PackLinuxElf64arm::PackLinuxElf64arm(InputFile *f)
+     : super(f)
+ {
+    e_machine = Elf64_Ehdr::EM_AARCH64;
+     ei_class = Elf64_Ehdr::ELFCLASS64;
+     ei_data = Elf64_Ehdr::ELFDATA2LSB;
+     ei_osabi  = Elf32_Ehdr::ELFOSABI_LINUX;
+ }
+
+PackLinuxElf64riscv64::PackLinuxElf64riscv64(InputFile *f)
     : super(f)
 {
-    e_machine = Elf64_Ehdr::EM_AARCH64;
+    e_machine = Elf64_Ehdr::EM_RISCV;
     ei_class = Elf64_Ehdr::ELFCLASS64;
     ei_data = Elf64_Ehdr::ELFDATA2LSB;
     ei_osabi  = Elf32_Ehdr::ELFOSABI_LINUX;
@@ -1406,6 +1429,10 @@ PackLinuxElf64amd::~PackLinuxElf64amd()
 }
 
 PackLinuxElf64arm::~PackLinuxElf64arm()
+{
+}
+
+PackLinuxElf64riscv64::~PackLinuxElf64riscv64()
 {
 }
 
@@ -2220,6 +2247,31 @@ PackLinuxElf64arm::buildLoader(const Filter *ft)
     buildLinuxLoader(
         stub_arm64_linux_elf_entry, sizeof(stub_arm64_linux_elf_entry),
         stub_arm64_linux_elf_fold,  sizeof(stub_arm64_linux_elf_fold), ft);
+}
+
+static const CLANG_FORMAT_DUMMY_STATEMENT
+#include "stub/riscv64-linux.elf-entry.h"
+//static const CLANG_FORMAT_DUMMY_STATEMENT
+//#include "stub/riscv64-linux.elf-so_entry.h"
+static const CLANG_FORMAT_DUMMY_STATEMENT
+#include "stub/riscv64-linux.elf-fold.h"
+//static const CLANG_FORMAT_DUMMY_STATEMENT
+//#include "stub/riscv64-linux.elf-so_fold.h"
+//static const CLANG_FORMAT_DUMMY_STATEMENT
+//#include "stub/riscv64-linux.shlib-init.h"
+
+void
+PackLinuxElf64riscv64::buildLoader(const Filter *ft)
+{
+//    if (0!=xct_off) {  // shared library
+//        buildLinuxLoader(
+//            stub_riscv64_linux_elf_so_entry, sizeof(stub_riscv64_linux_elf_so_entry),
+//            stub_riscv64_linux_elf_so_fold,  sizeof(stub_riscv64_linux_elf_so_fold), ft);
+//        return;
+//    }
+    buildLinuxLoader(
+        stub_riscv64_linux_elf_entry, sizeof(stub_riscv64_linux_elf_entry),
+        stub_riscv64_linux_elf_fold,  sizeof(stub_riscv64_linux_elf_fold), ft);
 }
 
     // DT_HASH, DT_GNU_HASH have no explicit length (except in ElfXX_Shdr),
@@ -5308,6 +5360,14 @@ void PackLinuxElf64arm::pack1(OutputFile *fo, Filter &ft)
     generateElfHdr(fo, stub_arm64_linux_elf_fold, getbrk(phdri, e_phnum) );
 }
 
+void PackLinuxElf64riscv64::pack1(OutputFile *fo, Filter &ft)
+{
+    super::pack1(fo, ft);
+    if (0!=xct_off)  // shared library
+        return;
+    generateElfHdr(fo, stub_riscv64_linux_elf_fold, getbrk(phdri, e_phnum) );
+}
+
 // Determine length of gap between PT_LOAD phdr[k] and closest PT_LOAD
 // which follows in the file (or end-of-file).  Optimize for common case
 // where the PT_LOAD are adjacent ascending by .p_offset.  Assume no overlap.
@@ -6062,6 +6122,11 @@ void PackLinuxElf64arm::defineSymbols(Filter const *ft)
     //if (ARM_is_QNX())
     //    mflg = MAP_PRIVANON;
     linker->defineSymbol("MFLG", mflg);
+}
+
+void PackLinuxElf64riscv64::defineSymbols(Filter const *ft)
+{
+    PackLinuxElf64::defineSymbols(ft);
 }
 
 void PackLinuxElf32mipseb::defineSymbols(Filter const *ft)

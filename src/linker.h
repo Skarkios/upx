@@ -168,6 +168,13 @@ protected:
                            const char *type) override;
 };
 
+class ElfLinkerRiscv64LE final : public ElfLinker {
+    typedef ElfLinker super;
+protected:
+    virtual void relocate1(const Relocation *, byte *location, upx_uint64_t value,
+                           const char *type) override;
+};
+
 class ElfLinkerArmBE final : public ElfLinker {
     typedef ElfLinker super;
 public:
