@@ -271,15 +271,18 @@ tc.default.readelf    = $(call tc,m-readelf)
 # default binutils functions
 define tc.default.f-embed_objinfo
 	chmod a-x $1
-	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
-	$(call tc,objcopy) -R .text -R .data -R .bss $1
-	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
+	$(call tc,objcopy) --strip-unneeded \
+		--keep-symbol=_start --keep-symbol=upx_so_main $1
+	$(call tc,objcopy) -R .text -R .data -R .bss \
+	    -R .comment -R .note -R .note.GNU-stack -R .reginfo \
+	    -R .gnu.attributes -R .MIPS.abiflags -R .riscv.attributes $1
 	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
-	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) | sed \
-	  -e '1s/^.*: *file format/file format/' \
-	  -e 's/$(tab)/ /g' \
-	  -e 's/ 00*/ 0/g' \
-	  -e 's/CONTENTS.*/CONTENTS/' \
+	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) \
+	  |  sed -e /R_RISCV_BRANCH/d -e /R_RISCV_RVC_BRANCH/d -e /R_RISCV_RVC_JUMP/d \
+	     -e '1s/^.*: *file format/file format/' \
+	     -e 's/$(tab)/ /g' \
+	     -e 's/ 00*/ 0/g' \
+	     -e 's/CONTENTS.*/CONTENTS/' \
 	  > $1.dump
 	$(call tc,xstrip) --with-dump=$1.dump $1
 	cat $1.dump >> $1
@@ -289,7 +292,7 @@ define tc.default.f-embed_objinfo_without_xstrip
 	chmod a-x $1
 	$(call tc,objcopy) -R .text -R .data -R .bss \
 	    -R .comment -R .note -R .note.GNU-stack -R .reginfo \
-	    -R .gnu.attributes -R .MIPS.abiflags \
+	    -R .gnu.attributes -R .MIPS.abiflags -R .riscv.attributes \
             -R .mdebug.eabi32 -R .gcc_compiled_long32 $1
 	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
 
@@ -310,18 +313,19 @@ define tc.default.f-embed_objinfo_without_xstrip
 #   change tab to space
 #   collapse multiple leading zeroes
 #   remove everything after "CONTENTS"
-	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) | sed \
-	  -e '1s/^.*: *file format/file format/' \
-	  -e 's/$(tab)/ /g' \
-	  -e 's/ 00*/ 0/g' \
-	  -e 's/CONTENTS.*/CONTENTS/' \
+	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) \
+	  |  sed -e /R_RISCV_BRANCH/d -e /R_RISCV_RVC_BRANCH/d -e /R_RISCV_RVC_JUMP/d \
+	     -e '1s/^.*: *file format/file format/' \
+	     -e 's/$(tab)/ /g' \
+	     -e 's/ 00*/ 0/g' \
+	     -e 's/CONTENTS.*/CONTENTS/' \
 	  > $1.dump
 	cat $1.dump >> $1
 endef
 
 define tc.default.f-embed_objinfo_without_xstrip_keep_dot_text
 	chmod a-x $1
-	$(call tc,objcopy)          -R .data -R .bss $1
+	$(call tc,objcopy)          -R .data -R .bss -R .riscv.attributes $1
 	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
 	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main --keep-symbol=str_upx $1
 #
@@ -341,11 +345,12 @@ define tc.default.f-embed_objinfo_without_xstrip_keep_dot_text
 #   change tab to space
 #   collapse multiple leading zeroes
 #   remove everything after "CONTENTS"
-	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) | sed \
-	  -e '1s/^.*: *file format/file format/' \
-	  -e 's/$(tab)/ /g' \
-	  -e 's/ 00*/ 0/g' \
-	  -e 's/CONTENTS.*/CONTENTS/' \
+	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) \
+	  |  sed -e /R_RISCV_BRANCH/d -e /R_RISCV_RVC_BRANCH/d -e /R_RISCV_RVC_JUMP/d \
+	    -e '1s/^.*: *file format/file format/' \
+	    -e 's/$(tab)/ /g' \
+	    -e 's/ 00*/ 0/g' \
+	    -e 's/CONTENTS.*/CONTENTS/' \
 	  > $1.dump
 	cat $1.dump >> $1
 endef
@@ -355,7 +360,7 @@ tc.default.f-objstrip-disasm.o   = $(call tc,objdump) -dr $(tc_objdump_disasm_op
 tc.default.f-objstrip-disasm.obj = $(call tc,objdump) -dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
 define tc.default.f-objstrip
 	chmod a-x $1
-	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
+	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo -R .riscv.attributes $1
 	$(call tc,f-objstrip-disasm$(suffix $1),$1)
 endef
 
@@ -2193,8 +2198,8 @@ powerpc64-linux.kernel.vmlinux-head.h : $(srcdir)/src/$$T.S
 riscv64-linux.elf%.h : tc_list = riscv64-linux.elf default
 riscv64-linux.elf%.h : tc_bfdname = elf64-littleriscv64
 
-tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -O -nostdinc -MMD -MT $@
-tc.riscv64-linux.elf.gcc += -fno-exceptions -fno-asynchronous-unwind-tables   # -fno-stack-protector
+tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -mcmodel=medlow -O -nostdinc -MMD -MT $@
+tc.riscv64-linux.elf.gcc += -march=rv64gc -mno-relax -fno-exceptions -fno-asynchronous-unwind-tables -fno-stack-protector
 tc.riscv64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
 tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attrbutes -R .eh_frame
@@ -2226,7 +2231,7 @@ riscv64-linux.elf-fold.h : $(srcdir)/src/$$T.lds \
 	    tmp/riscv64-linux.elf-upxfd_linux.o \
 	    tmp/riscv64-expand.o \
 	    tmp/riscv64-linux.elf-main2.o
-	$(call tc,ld) -r                    -Map tmp/$T.map $(filter %.o,$^) -o tmp/$T.bin
+	$(call tc,ld) -r         -Map tmp/$T.map $(filter %.o,$^) -o tmp/$T.bin
 	$(call tc,f-embed_objinfo_without_xstrip_keep_dot_text,tmp/$T.bin)
 	$(call tc,bin2h) tmp/$T.bin $@
 
@@ -2234,7 +2239,7 @@ tmp/riscv64-linux.elf-fold.o : $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c $< -o $@
 	$(call tc,f-objstrip,$@)
 
-tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
+tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/amd64-linux.elf-main2.c
 	$(call tc,gcc) -c $< -o $@
 	$(call tc,f-objstrip,$@)
 

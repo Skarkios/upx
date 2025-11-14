@@ -201,6 +201,7 @@ PackerBase *PackMaster::visitAllPackers(visit_func_t func, InputFile *f, const O
         VISIT(PackLinuxElf32armLe);
         VISIT(PackLinuxElf32armBe);
         VISIT(PackLinuxElf64arm);
+        VISIT(PackLinuxElf64riscv64);
         VISIT(PackLinuxElf32ppc);
         VISIT(PackLinuxElf64ppc);
         VISIT(PackLinuxElf64ppcle);

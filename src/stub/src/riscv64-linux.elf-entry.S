@@ -110,27 +110,25 @@ D_XSIGSEGV= 1*NBPW
 // find auxv
         slli t0,s0,3  // NBPW * argc
         add t0,t0,a1  // end argv
-0: // find end of env
+L300: // find end of env
         addi t0,t0,NBPW  // &env[k]
-        ld t1,(t0); bnez t1,0b
+        ld t1,(t0); bnez t1,L300
 
 // find AT_PAGESZ in auxv
         addi t0,t0,NBPW  // &auxv
         li a7,AT_PAGESZ  // desired key
-0:
+L310:
         ld t1,(t0); ld t2,NBPW(t0); addi t0,t0,2*NBPW
-        beq t1,a7,1f  // found it
-        bne t1,zero,0b  // keep searching
+        beq t1,a7,L320  // found it
+        bne t1,zero,L310  // keep searching
         li t2,0x1000  // default PAGE_SIZE
-1:
+L320:
         sub a7,zero,t2  // PAGE_MASK
-2:
 // Create anonymous temporary file on mfd; like upxfd_create
-        jal arg1,0f
-str_upx:
-        .asciz "upx"
-0:
 //        lla arg1,str_upx
+	jal arg1,L330
+	.asciz "upx"  // 4==size; no .balign needed
+L330:
         li arg2,MFD_EXEC  // flags
         syscall __NR_memfd_create
         bne a0,zero,ok_memfd  // success
@@ -139,12 +137,10 @@ no_memfd:  // so try /dev/shm
 O_RDWR= 2
 O_DIRECTORY= 0200000  // 0x010000
 O_TMPFILE= 020000000  // 0x400000
-#        lla arg1,str_devmem
-        jal arg1,0f
-str_devmem:
-        .asciz "/dev/mem"
-        .balign 4
-0:
+//        lla arg1,str_devmem
+	jal arg1,L340
+	.asciz "/dev/mem"; .balign 4
+L340:
         li arg2,0700  // mode
         li arg3,O_RDWR | O_TMPFILE | O_DIRECTORY
         syscall __NR_openat
@@ -177,8 +173,8 @@ ok_memfd:
 #define lsrc a1
         mv dst,sp
         lw lsrc,sz_cpr(binf)
-        lbu t0,b_method(binf); li t1,M_NRV2B_LE32|(0<<8); beq t0,t1,0f; ebreak
-0:
+        lbu t0,b_method(binf); li t1,M_NRV2B_LE32|(0<<8); beq t0,t1,L350; ebreak
+L350:
         add t0,lsrc,src; sw t0,F_EOF(old_sp)
 //%rsp:
 //  MATCH_10  old_sp
@@ -246,11 +242,11 @@ eof_n2b:
         mv arg2,sp
         mv arg1,mfd
         mv s2,arg3  // LENU
-0:  // /dev/shm might be restricted to 8KiB at a time!
+L360:  // /dev/shm might be restricted to 8KiB at a time!
         syscall __NR_write
         add arg2,arg2,rv  // ptr += count
         sub  arg3,arg3,rv  // decrement count
-        bnez arg3,0b  // not finished
+        bnez arg3,L360  // not finished
 // de-alloca()
         mv sp,old_sp
 

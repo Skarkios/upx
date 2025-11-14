@@ -78,10 +78,10 @@ extern void my_bkpt(void const *, ...);
 #define ANDROID_FRIEND 0
 #define addr_string(string) ({ \
     char const *str; \
-    asm("jal 0f; .string \"" string "\"; .balign 4; 0: mv %0,ra" \
+    asm("jal %0,0f; .string \"" string "\"; .balign 4; 0:" \
 /*out*/ : "=r"(str) \
 /* in*/ : \
-/*und*/ : "x30"); \
+/*und*/ : ); \
     str; \
 })
 #else  //}{
