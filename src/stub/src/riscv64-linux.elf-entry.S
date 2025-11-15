@@ -82,9 +82,12 @@ M_NRV2E_LE32=8
 
 // https://www.uclibc.org/docs/psABI-x86_64.pdf
   section ELFMAINX
+#define elfa s3
 sz_pack2= .-4
 _start: .globl _start
+	jal elfa,0f; 0:
 ////    nop; int3  # uncomment for debugging
+	lwu elfa,-8(elfa)
 
         ld s0,0(sp)  // argc
         addi s1,sp,NBPW  // argv
@@ -148,11 +151,9 @@ ok_memfd:
 #define mfd s2
         mv mfd,rv
 
-        lla t0,sz_pack2
-#define elfa s3
-        lw t1,(t0); sub elfa,t0,t1
+        sub elfa,t0,elfa  // sz_pack2 back
 #define binf s4
-        lla binf,4+o_binfo
+        jal mainz
 #define lenu s5
         lw lenu,sz_unc(binf)
 #define szp2 s6
@@ -272,7 +273,8 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
 
   section ELFMAINZ
         .balign 4
-o_binfo:
+mainz:
+	jalr binf,ra
         .long O_BINFO  // offset of b_info for .text | is_ptinerp | unmap_all_pages
 FOLD:
         // { b_info={sz_unc, sz_cpr, {4 char}}, folded_loader...}

@@ -30,6 +30,8 @@
 #include "filter.h"
 #include "packer.h"
 #include "p_djgpp2.h"
+#define WANT_EHDR_ENUM 1
+#include "p_elf_enum.h"
 #include "linker.h"
 
 static const CLANG_FORMAT_DUMMY_STATEMENT
@@ -75,7 +77,7 @@ unsigned PackDjgpp2::findOverlapOverhead(const byte *buf, const byte *tbuf, unsi
 
 void PackDjgpp2::buildLoader(const Filter *ft) {
     // prepare loader
-    initLoader(stub_i386_dos32_djgpp2, sizeof(stub_i386_dos32_djgpp2));
+    initLoader(EM_386, stub_i386_dos32_djgpp2, sizeof(stub_i386_dos32_djgpp2));
     addLoader("IDENTSTR,DJ2MAIN1", ft->id ? "DJCALLT1" : "",
               ph.first_offset_found == 1 ? "DJ2MAIN2" : "",
               M_IS_LZMA(ph.method) ? "LZMA_INIT_STACK" : "", getDecompressorSections(),

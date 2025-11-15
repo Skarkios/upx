@@ -30,6 +30,8 @@
 #include "filter.h"
 #include "packer.h"
 #include "p_com.h"
+#define WANT_EHDR_ENUM 1
+#include "p_elf_enum.h"
 #include "linker.h"
 
 static const CLANG_FORMAT_DUMMY_STATEMENT
@@ -105,7 +107,7 @@ void PackCom::addFilter16(int filter_id) {
 }
 
 void PackCom::buildLoader(const Filter *ft) {
-    initLoader(stub_i086_dos16_com, sizeof(stub_i086_dos16_com));
+    initLoader(EM_386, stub_i086_dos16_com, sizeof(stub_i086_dos16_com));
     // clang-format off
     addLoader("COMMAIN1",
               ph.first_offset_found == 1 ? "COMSBBBP" : "",

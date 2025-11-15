@@ -26,6 +26,8 @@
  */
 
 #include "conf.h"
+#define WANT_EHDR_ENUM 1
+#include "p_elf_enum.h"
 #include "linker.h"
 
 static unsigned hex(uchar c) { return (c & 0xf) + (c > '9' ? 9 : 0); }
@@ -117,8 +119,9 @@ ElfLinker::~ElfLinker() noexcept {
     free_array(relocations, nrelocations);
 }
 
-void ElfLinker::init(const void *pdata_v, int plen, unsigned pxtra) {
+void ElfLinker::init(unsigned arch, const void *pdata_v, int plen, unsigned pxtra) {
     const byte *pdata = (const byte *) pdata_v;
+    this->e_machine = arch;
     if (plen >= 16 && memcmp(pdata, "UPX#", 4) == 0) {
         // decompress pre-compressed stub-loader
         int method;
@@ -157,7 +160,7 @@ void ElfLinker::init(const void *pdata_v, int plen, unsigned pxtra) {
     assert(output_capacity < (1 << 16)); // LE16 l_info.l_size
     output = New(byte, output_capacity);
     outputlen = 0;
-    NO_printf("\nElfLinker::init %d @%p\n", output_capacity, output);
+    printf("\nElfLinker::init %d @%p\n", output_capacity, output);
 
     // FIXME: bad compare when either symbols or relocs are absent
     if ((int) strlen("Sections:\n"
@@ -198,7 +201,7 @@ void ElfLinker::preprocessSections(char *start, char const *end) {
             char *n = strstr(start, name);
             n[strlen(name)] = 0;
             addSection(n, input + offset, size, align);
-            NO_printf("section %s preprocessed\n", n);
+            printf("section %s preprocessed\n", n);
         }
     }
     addSection("*ABS*", nullptr, 0, 0);
@@ -206,7 +209,7 @@ void ElfLinker::preprocessSections(char *start, char const *end) {
 }
 
 void ElfLinker::preprocessSymbols(char *start, char const *end) {
-    assert_noexcept(nsymbols == 0);
+    assert_noexcept(nsymbols <= 1);
     char *nextl;
     for (; start < end; start = 1 + nextl) {
         nextl = strchr(start, '\n');
@@ -291,7 +294,7 @@ void ElfLinker::preprocessRelocations(char *start, char const *end) {
 
             if (section) {
                 addRelocation(section->name, offset, t, symbol, add);
-                NO_printf("relocation %s %s %x %llu preprocessed\n", section->name, symbol, offset,
+                printf("relocation %s %s %x %llu preprocessed\n", section->name, symbol, offset,
                           (unsigned long long) add);
             }
         }
@@ -318,7 +321,7 @@ ElfLinker::Symbol *ElfLinker::findSymbol(const char *name, bool fatal) const {
 
 ElfLinker::Section *ElfLinker::addSection(const char *sname, const void *sdata, int slen,
                                           unsigned p2align) {
-    NO_printf("addSection: %s len=%d align=%d\n", sname, slen, p2align);
+    printf("addSection: %s len=%d align=%d\n", sname, slen, p2align);
     if (!sdata && (!strcmp("ABS*", sname) || !strcmp("UND*", sname)))
         return nullptr;
     assert(sname && sname[0]);
@@ -329,12 +332,17 @@ ElfLinker::Section *ElfLinker::addSection(const char *sname, const void *sdata, 
     Section *sec = new Section(sname, sdata, slen, p2align);
     sec->sort_id = nsections;
     sections[nsections++] = sec;
+    if ('*' == sname[0]) {
+        if (!strcmp("*ABS*",sname)) {
+            addSymbol("*ABS*", "*ABS*", 0);
+	}
+    }
     return sec;
 }
 
 ElfLinker::Symbol *ElfLinker::addSymbol(const char *name, const char *section,
                                         upx_uint64_t offset) {
-    NO_printf("addSymbol: %s %s 0x%llx\n", name, section, offset);
+    printf("addSymbol: %s %s 0x%llx\n", name, section, offset);
     assert(name && name[0]);
     assert(name[strlen(name) - 1] != ':');
     assert(findSymbol(name, false) == nullptr);
@@ -347,6 +355,13 @@ ElfLinker::Symbol *ElfLinker::addSymbol(const char *name, const char *section,
 
 ElfLinker::Relocation *ElfLinker::addRelocation(const char *section, unsigned off, const char *type,
                                                 const char *symbol, upx_uint64_t add) {
+    if (EM_RISCV == this->e_machine
+        &&  ((symbol && '.' == symbol[0])
+	  || !strcmp("R_RISCV_RVC_JUMP", type) 
+	  || !strcmp("R_RISCV_RVC_BRANCH", type)
+          || !strcmp("R_RISCV_BRANCH", type) ) ) {
+        return nullptr;
+    }
     if (grow_capacity(nrelocations, &nrelocations_capacity))
         relocations = realloc_array(relocations, nrelocations_capacity);
     Relocation *rel = new Relocation(findSection(section), off, type, findSymbol(symbol), add);
@@ -406,7 +421,7 @@ int ElfLinker::addLoader(const char *sname) {
             assert((section->size + outputlen) <= output_capacity);
             memcpy(output + outputlen, section->input, section->size);
             section->output = output + outputlen; // FIXME: INVALIDATED by realloc()
-            NO_printf("section added: 0x%04x %3d %s\n", outputlen, section->size, section->name);
+            printf("section added: 0x%04x %3d %s\n", outputlen, section->size, section->name);
             outputlen += section->size;
 
             if (head) {
@@ -475,10 +490,10 @@ void ElfLinker::relocate() {
             value = rel->value->section->offset + rel->value->offset + rel->add;
         }
         byte *location = rel->section->output + rel->offset;
-        NO_printf("%-28s %-28s %-10s %#16llx %#16llx\n", rel->section->name, rel->value->name,
+        printf("%-28s %-28s %-10s %#16llx %#16llx\n", rel->section->name, rel->value->name,
                   rel->type, (long long) value,
                   (long long) value - rel->section->offset - rel->offset);
-        NO_printf("  %llx %d %llx %d %llx :%d\n", (long long) value,
+        printf("  %llx %d %llx %d %llx :%d\n", (long long) value,
                   (int) rel->value->section->offset, rel->value->offset, rel->offset,
                   (long long) rel->add, *location);
         relocate1(rel, location, value, rel->type);
@@ -689,42 +704,38 @@ void ElfLinkerArm64LE::relocate1(const Relocation *rel, byte *location, upx_uint
         super::relocate1(rel, location, value, type);
 }
 
+unsigned extr_imm_RV_JAL(unsigned w);
+unsigned extr_imm_RV_JAL(unsigned w)
+{
+    return ((0x3ff & (w >> 21)) << 1)
+        | ((     1 & (w >> 20)) << 11)
+	| ((  0xff & (w >> 12)) << 12)
+	| ((     1 & (w >> 31)) << 20);
+}
+unsigned ins_imm_RV_JAL(unsigned w);
+unsigned ins_imm_RV_JAL(unsigned w)
+{
+    return (( 0x3ff & (w >>  1)) << 21)
+        |  ((     1 & (w >> 11)) << 20)
+        |  ((  0xff & (w >> 12)) << 12)
+        |  ((     1 & (w >> 20)) << 31);
+}
+
 void ElfLinkerRiscv64LE::relocate1(const Relocation *rel, byte *location, upx_uint64_t value,
                                  const char *type) {
-    if (strncmp(type, "R_AARCH64_", 10))
+    if (strncmp(type, "R_RISCV_", 8))
         return super::relocate1(rel, location, value, type);
-    type += 10;
+    type += 8;
 
-    if (!strncmp(type, "PREL", 4)) {
+    if (!strncmp(type, "JAL", 3)) {
         value -= rel->section->offset + rel->offset;
-        type += 4;
+        type += 3;
 
-        if (!strcmp(type, "16"))
-            set_le16(location, get_le16(location) + value);
-        else if (!strncmp(type, "32", 2)) // for "32" and "32S"
-            set_le32(location, get_le32(location) + value);
-        else if (!strcmp(type, "64"))
-            set_le64(location, get_le64(location) + value);
-    } else if (!strcmp(type, "ADR_PREL_LO21")) {
-        value -= rel->section->offset + rel->offset;
-        upx_uint32_t const m19 = ~(~0u << 19);
-        upx_uint32_t w = get_le32(location);
-        set_le32(location, (w & ~((3u << 29) | (m19 << 5))) | ((3u & value) << 29) |
-                               ((m19 & (value >> 2)) << 5));
-    } else if (!strcmp(type, "ABS32")) {
-        set_le32(location, get_le32(location) + value);
-    } else if (!strcmp(type, "ABS64")) {
-        set_le64(location, get_le64(location) + value);
-    } else if (!strcmp(type, "CONDBR19")) {
-        value -= rel->section->offset + rel->offset;
-        upx_uint32_t const m19 = ~(~0u << 19);
-        upx_uint32_t w = get_le32(location);
-        set_le32(location, (w & ~(m19 << 5)) | ((((w >> 5) + (value >> 2)) & m19) << 5));
-    } else if (!strcmp(type, "CALL26") || !strcmp(type, "JUMP26")) {
-        value -= rel->section->offset + rel->offset;
-        upx_uint32_t const m26 = ~(~0u << 26);
-        upx_uint32_t w = get_le32(location);
-        set_le32(location, (w & ~m26) | (m26 & (value >> 2)));
+	unsigned word = get_le32(location);
+        set_le32(location, (0xfff & word)
+	    | ins_imm_RV_JAL(value + extr_imm_RV_JAL(word)));
+    } else if (!strncmp(type, "32", 2)) {
+        set_le32(location, value);
     } else
         super::relocate1(rel, location, value, type);
 }

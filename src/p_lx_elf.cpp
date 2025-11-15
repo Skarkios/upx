@@ -1550,7 +1550,7 @@ PackLinuxElf32::buildLinuxLoader(
       && (  this->e_machine==Elf32_Ehdr::EM_ARM
          || this->e_machine==Elf32_Ehdr::EM_386)
     ) {
-        initLoader(fold, szfold);
+        initLoader(this->e_machine, fold, szfold);
 // Typical layout of 'sections' in compressed stub code for shared library:
 //   SO_HEAD
 //   ptr_NEXT
@@ -1610,7 +1610,7 @@ PackLinuxElf32::buildLinuxLoader(
          ||  this->e_machine==Elf32_Ehdr::EM_PPC
          ||  this->e_machine==Elf32_Ehdr::EM_MIPS
          ) { // main program with ELF2 de-compressor (folded portion)
-        initLoader(fold, szfold);
+        initLoader(this->e_machine, fold, szfold);
         char sec[200]; memset(sec, 0, sizeof(sec));  // debug convenience
         int len = 0;
         unsigned m_decompr = methods_used | (1u << (0xFF & ph_forced_method(ph.method)));
@@ -1684,7 +1684,7 @@ PackLinuxElf32::buildLinuxLoader(
     memcpy(cprLoader, &h, sizeof(h)); // cprLoader will become FOLDEXEC
   }  // end (0 < szfold)
 
-    initLoader(proto, szproto, -1, sz_cpr);
+    initLoader(this->e_machine, proto, szproto, -1, sz_cpr);
     NO_printf("FOLDEXEC unc=%#x  cpr=%#x\n", sz_unc, sz_cpr);
     linker->addSection("FOLDEXEC", mb_cprLoader, sizeof(b_info) + sz_cpr, 0);
     if (xct_off  // shlib
@@ -1751,7 +1751,7 @@ PackLinuxElf64::buildLinuxLoader(
       && (  this->e_machine==Elf64_Ehdr::EM_X86_64
          || this->e_machine==Elf64_Ehdr::EM_AARCH64)
     ) {
-        initLoader(fold, szfold);
+        initLoader(this->e_machine, fold, szfold);
 // Typical layout of 'sections' in compressed stub code for shared library:
 //   SO_HEAD
 //   ptr_NEXT
@@ -1803,8 +1803,9 @@ PackLinuxElf64::buildLinuxLoader(
          ||  this->e_machine==Elf64_Ehdr::EM_X86_64
          ||  this->e_machine==Elf64_Ehdr::EM_AARCH64
          ||  this->e_machine==Elf64_Ehdr::EM_PPC64
+	 ||  this->e_machine==Elf64_Ehdr::EM_RISCV
          ) { // main program with ELF2 de-compressor (folded portion)
-        initLoader(fold, szfold);
+        initLoader(this->e_machine, fold, szfold);
         char sec[200]; memset(sec, 0, sizeof(sec));  // debug convenience
         int len = 0;
         unsigned m_decompr = methods_used | (1u << (0xFF & ph_forced_method(ph.method)));
@@ -1830,7 +1831,7 @@ PackLinuxElf64::buildLinuxLoader(
             len += snprintf(&sec[len], sizeof(sec) - len, ",%s", "STRCON");
         }
         (void)len;
-        NO_printf("\n%s\n", sec);
+        printf("\nbuildLinuxLoader64: %s\n", sec);
         addLoader(sec, nullptr);
         relocateLoader();
         {
@@ -1844,7 +1845,7 @@ PackLinuxElf64::buildLinuxLoader(
         cprElfHdr1 const *hf = (cprElfHdr1 const *)fold;
         e_type = get_te16(&hf->ehdr.e_type);
         if (ET_REL == e_type) {
-            initLoader(fold, szfold);
+            initLoader(this->e_machine, fold, szfold);
             addLoader(".text", nullptr);
             relocateLoader();
             int sz_unc_int(0);
@@ -1885,7 +1886,7 @@ PackLinuxElf64::buildLinuxLoader(
     memcpy(cprLoader, &h, sizeof(h)); // cprLoader will become FOLDEXEC
   }  // end (0 < szfold)
 
-    initLoader(proto, szproto, -1, sz_cpr);
+    initLoader(this->e_machine, proto, szproto, -1, sz_cpr);
     NO_printf("FOLDEXEC unc=%#x  cpr=%#x\n", sz_unc, sz_cpr);
     linker->addSection("FOLDEXEC", mb_cprLoader, sizeof(b_info) + sz_cpr, 0);
     if (xct_off
@@ -1893,6 +1894,7 @@ PackLinuxElf64::buildLinuxLoader(
           || this->e_machine==Elf64_Ehdr::EM_X86_64
           || this->e_machine==Elf64_Ehdr::EM_AARCH64
           || this->e_machine==Elf64_Ehdr::EM_PPC64
+          || this->e_machine==Elf64_Ehdr::EM_RISCV
           )
     ) {
         addLoader("ELFMAINX,ELFMAINZ,FOLDEXEC,IDENTSTR");
@@ -1901,6 +1903,7 @@ PackLinuxElf64::buildLinuxLoader(
          ||  this->e_machine==Elf64_Ehdr::EM_X86_64
          ||  this->e_machine==Elf64_Ehdr::EM_AARCH64
          ||  this->e_machine==Elf64_Ehdr::EM_PPC64
+         ||  this->e_machine==Elf64_Ehdr::EM_RISCV
         ) { // main program with ELF2 de-compressor
         addLoader("ELFMAINX");
         // NYI for PPC64 {

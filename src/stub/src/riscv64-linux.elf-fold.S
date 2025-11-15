@@ -27,6 +27,8 @@
 *  <jreiser@users.sourceforge.net>
 */
 
+#define call jal
+
 NBPW= 8
 #include "arch/riscv/64/macros.S"
 #include "arch/riscv/64/regs.h"
@@ -53,7 +55,7 @@ OVERHEAD=2048
 /* 64-bit mode only! */
 __NR_read=  0
 __NR_write= 1
-__NR_openat=  2  //NYI
+__NR_openat=  56
 __NR_close= 3
 
 __NR_mmap=      9
@@ -104,6 +106,7 @@ D_XSIGSEGV= 1*NBPW
 
         //.balign 8
 get_page_mask: .globl get_page_mask
+L_get_page_mask:
 	lui rv,0xfffff
 	ret
 
@@ -124,14 +127,16 @@ Pprotect: .globl Pprotect
 
 Punmap: .globl Punmap  // page-align the lo end
 munmap: .global munmap
+L_munmap:
         li a7,__NR_munmap
 	j Palign
 
 Pmap: .globl Pmap  // page-align the lo end
 mmap: .globl mmap
+L_mmap:
         li a7,__NR_mmap
 Palign:
-	mv x5,ra; call get_page_mask; mv ra,x5  // rv= PAGE_MASK
+	mv x5,ra; call L_get_page_mask; mv ra,x5  // rv= PAGE_MASK
         xori t0,rv,~0  // frag mask
         and arg1,arg1,t0  // frag
         sub arg1,arg1,t0
@@ -178,15 +183,14 @@ L230:  // find &strings (beyond auxv)
         andi t0,r13,unmap_all_pages; beqz t0,env_pse
         ori rfd,rfd,~0; mv r14,rdi;   j   no_env_pse  # no fd; beyond auxv
 env_pse:
-        li arg3,0  # O_RdONLY
 	jal s0,L235  // lla arg2,proc_self_exe
 proc_self_exe:
         .asciz "/proc/self/exe"
         .balign 4
 L235:
+        li arg3,0  # O_RdONLY
 	mv arg2,s0  // "proc_self_exe"
-        li arg1,FD_CWD
-        call openat; mv rfd,rv  # fd
+        call openat_CWD; mv rfd,rv  # fd
 
         li arg3,-1+ PATH_MAX  # buflen
         mv arg2,sp  # buffer
@@ -269,7 +273,7 @@ p_memsz= 5*NBPW
         //cmpw $ET_EXEC, e_type(%r13); jne L290
         mv arg1,r13; call brk  // also sets the brk
 L290:
-        mv arg1,r13; call munmap  # discard C_TEXT compressed data
+        mv arg1,r13; call L_munmap  # discard C_TEXT compressed data
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
         bltz rfd,no_pse_map
@@ -279,10 +283,10 @@ L290:
         li arg3,PROT_READ
         li arg2,1<<12
         li arg1,0
-        call mmap
+        call L_mmap
 
         mv arg1,rfd
-        call close
+        call L_close
 
 no_pse_map:
         ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
@@ -295,6 +299,27 @@ my_bkpt: .globl my_bkpt
         ebreak  // my_bkpt
         ret
 
+memset: .globl memset  // memset(ptr, c, n)
+	beqz arg3,9f
+	add arg3,arg3,arg1  // sentinel
+	mv t0,arg1  // keep rv == arg1
+0:
+	sb arg2,0(t0); addi t0,t0,1
+	bne arg3,t0,0b
+9:
+	ret
+
+memcpy: .globl memcpy  // memcpr(dst, src, n)
+	beqz arg3,9f
+	add arg3,arg3,arg2  // sentinel
+	mv t0,arg1  // keep rv == arg1
+0:
+	lb t1,0(arg2); addi arg2,arg2,1
+	sb t1,0(t0); addi t0,t0,1
+	bne arg3,arg2,0b
+9:
+	ret
+
 upxfd_create: .globl upxfd_create // (char *tag, unsigned flags)
 L270: // try memfd_create
         syscall __NR_memfd_create; j ok_memfd  //NYI
@@ -303,9 +328,8 @@ O_DIRECTORY= 0200000  // 0x010000
 O_TMPFILE= 020000000  // 0x400000
         li arg4,0700  # mode
         li arg3,O_RDWR|O_DIRECTORY|O_TMPFILE
-        la arg3,dev_shm
-        li arg1,FD_CWD
-        syscall __NR_openat
+        jal arg2, openat_CWD
+	.asciz "/dev/shm"; .balign 4
 ok_memfd:
         ret
 
@@ -318,26 +342,34 @@ sys_check:
 
 Psync: .globl Psync
         li a7,__NR_msync
-        j L294
+        j sysgo
 
+open: .globl open
+	mv arg4,arg3
+	mv arg3,arg2
+	mv arg2,arg1
+openat_CWD:
+	li arg1,FD_CWD
+openat: .globl openat
+L_openat:
+        li a7,__NR_openat; j L501
 exit: .globl exit
-        li a7,__NR_exit; L501: j jL502
+        li a7,__NR_exit; L501: j L502
 brk: .globl brk
         li a7,__NR_brk; L502: j L503
 close: .globl close
+L_close:
         li a7,__NR_close; L503: j L504
 ftruncate: .globl ftruncate
         li a7,__NR_ftruncate; L504: j L505
-open: .globl openat
-        li a7,__NR_openat; L505: j L506
 mprotect: .globl mprotect
-        li a7,__NR_mprotect; L506: j L507
+        li a7,__NR_mprotect; L505: j L506
 msync: .globl msync
-        li a7,__NR_msync; L507: j L508
+        li a7,__NR_msync; L506: j L507
 Pwrite: .globl Pwrite
 write: .globl write
-        li a7,__NR_write; L508: j L509
+        li a7,__NR_write; L507: j L508
 read: .globl read
-        li a7,__NR_read; L509: j sysgo
+        li a7,__NR_read; L508: j sysgo
 
 // vim:set ts=8 sw=8 et:

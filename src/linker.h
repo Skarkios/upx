@@ -41,6 +41,7 @@ protected:
     struct Symbol;
     struct Relocation;
 
+    unsigned e_machine = 0; // EM_NONE
     byte *input = nullptr;
     int inputlen = 0;
     byte *output = nullptr;
@@ -77,7 +78,7 @@ public:
     explicit ElfLinker(const N_BELE_RTP::AbstractPolicy *b = &N_BELE_RTP::le_policy) noexcept;
     virtual ~ElfLinker() noexcept;
 
-    void init(const void *pdata, int plen, unsigned pxtra = 0);
+    void init(unsigned arch, const void *pdata, int plen, unsigned pxtra = 0);
     // virtual void setLoaderAlignOffset(int phase);
     int addLoader(const char *sname);
     void addLoader(const char *s, va_list ap);

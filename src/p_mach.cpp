@@ -487,7 +487,7 @@ PackMachBase<T>::buildMachLoader(
     Filter const *ft
 )
 {
-    initLoader(proto, szproto);
+    initLoader(0, proto, szproto);
 
     struct b_info h; memset(&h, 0, sizeof(h));
     unsigned fold_hdrlen = 0;

@@ -757,11 +757,11 @@ static const char *getIdentstr(unsigned *size, int small) {
     }
 }
 
-void Packer::initLoader(const void *pdata, int plen, int small, int pextra) {
+void Packer::initLoader(unsigned arch, const void *pdata, int plen, int small, int pextra) {
     upx::owner_delete(linker);
     linker = newLinker();
     assert(bele == linker->bele);
-    linker->init(pdata, plen, pextra);
+    linker->init(arch, pdata, plen, pextra);
 
     unsigned size;
     char const *const ident = getIdentstr(&size, small);
