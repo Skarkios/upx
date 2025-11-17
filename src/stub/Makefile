@@ -2218,7 +2218,9 @@ tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
 #   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
 
 riscv64-linux.elf-entry.h : $(srcdir)/src/$$T.S
-	$(call tc,gcc) -c $< -o tmp/$T.bin
+	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
+	    | sed 's/@plt//' \
+	    | $(call tc,gcc) -c -x assembler-with-cpp - -o tmp/$T.bin
 	$(call tc,f-embed_objinfo,tmp/$T.bin)
 	$(call tc,bin2h) tmp/$T.bin $@
 

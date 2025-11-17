@@ -1803,7 +1803,7 @@ PackLinuxElf64::buildLinuxLoader(
          ||  this->e_machine==Elf64_Ehdr::EM_X86_64
          ||  this->e_machine==Elf64_Ehdr::EM_AARCH64
          ||  this->e_machine==Elf64_Ehdr::EM_PPC64
-	 ||  this->e_machine==Elf64_Ehdr::EM_RISCV
+         ||  this->e_machine==Elf64_Ehdr::EM_RISCV
          ) { // main program with ELF2 de-compressor (folded portion)
         initLoader(this->e_machine, fold, szfold);
         char sec[200]; memset(sec, 0, sizeof(sec));  // debug convenience
@@ -1831,7 +1831,7 @@ PackLinuxElf64::buildLinuxLoader(
             len += snprintf(&sec[len], sizeof(sec) - len, ",%s", "STRCON");
         }
         (void)len;
-        printf("\nbuildLinuxLoader64: %s\n", sec);
+        printf("\n\nbuildLinuxLoader64: %s\n", sec);
         addLoader(sec, nullptr);
         relocateLoader();
         {

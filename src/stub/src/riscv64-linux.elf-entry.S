@@ -64,6 +64,8 @@ PROT_READ=  1
 PROT_WRITE= 2
 PROT_EXEC=  4
 
+FD_CWD= -100
+
 MAP_SHARED=  1
 MAP_PRIVATE= 2
 MAP_FIXED=     0x10
@@ -78,22 +80,6 @@ FD_stderr= 2
 M_NRV2B_LE32=2  // ../conf.h
 M_NRV2D_LE32=5
 M_NRV2E_LE32=8
-
-
-// https://www.uclibc.org/docs/psABI-x86_64.pdf
-  section ELFMAINX
-#define elfa s3
-sz_pack2= .-4
-_start: .globl _start
-	jal elfa,0f; 0:
-////    nop; int3  # uncomment for debugging
-	lwu elfa,-8(elfa)
-
-        ld s0,0(sp)  // argc
-        addi s1,sp,NBPW  // argv
-        //NYI lea cancel_dummy(%rip),%r15
-
-  section ELFMAINX2
 
 // same as in riscv64-linux.elf-fold.S
 F_FRAME= 8*NBPW
@@ -110,57 +96,81 @@ D_FOLD=  2*NBPW  // .data space at start of unfold
 D_PMASK= 0*NBPW
 D_XSIGSEGV= 1*NBPW
 
+// https://www.uclibc.org/docs/psABI-x86_64.pdf
+  section ELFMAINX
+#define elfa s3
+sz_pack2= .-4
+_start: .globl _start
+        jal t0,0f; 0: addi t0,t0,-8  // &sz_pack2
+
+////    nop; int3  # uncomment for debugging
+#define szp2 s6
+        lwu szp2,0(t0)  // sz_pack2
+        sub elfa,t0,szp2
+
+        ld s0,0(sp)  // argc
+        addi s1,sp,NBPW  // &argv
+
+        addi sp,sp,-F_FRAME
+        sd elfa,F_ELFA(sp)
+        sd szp2,F_EOF(sp)
+
+        //NYI lea cancel_dummy(%rip),%r15
+
+  section ELFMAINX2
+
 // find auxv
         slli t0,s0,3  // NBPW * argc
-        add t0,t0,a1  // end argv
-L300: // find end of env
+        add t0,t0,s1  // end argv
+0: // find end of env
         addi t0,t0,NBPW  // &env[k]
-        ld t1,(t0); bnez t1,L300
+        ld t1,(t0); bnez t1,0b
 
 // find AT_PAGESZ in auxv
         addi t0,t0,NBPW  // &auxv
         li a7,AT_PAGESZ  // desired key
-L310:
+0:
         ld t1,(t0); ld t2,NBPW(t0); addi t0,t0,2*NBPW
-        beq t1,a7,L320  // found it
-        bne t1,zero,L310  // keep searching
+        beq t1,a7,9f  // found it
+        bnez t1,0b  // keep searching
         li t2,0x1000  // default PAGE_SIZE
-L320:
-        sub a7,zero,t2  // PAGE_MASK
+9:
+        neg a7,t2  // PAGE_MASK
+        sd a7,F_PMASK(sp)
 // Create anonymous temporary file on mfd; like upxfd_create
-//        lla arg1,str_upx
-	jal arg1,L330
-	.asciz "upx"  // 4==size; no .balign needed
-L330:
+        jal arg1,0f
+        .asciz "upx"  // 4==size; no .balign needed
+0:
         li arg2,MFD_EXEC  // flags
         syscall __NR_memfd_create
-        bne a0,zero,ok_memfd  // success
-no_memfd:  // so try /dev/shm
-
+        bgez a0,9f  // success
+            // failure, so try /dev/mem
 O_RDWR= 2
 O_DIRECTORY= 0200000  // 0x010000
 O_TMPFILE= 020000000  // 0x400000
-//        lla arg1,str_devmem
-	jal arg1,L340
-	.asciz "/dev/mem"; .balign 4
-L340:
-        li arg2,0700  // mode
+        li arg4,0700  // mode
         li arg3,O_RDWR | O_TMPFILE | O_DIRECTORY
+        jal arg2,0f
+        .ascii "/dev/mem"; .int 0  // .balign causes problems
+0:
+        li arg1,FD_CWD
         syscall __NR_openat
-ok_memfd:
+9:
 #define mfd s2
         mv mfd,rv
 
-        sub elfa,t0,elfa  // sz_pack2 back
 #define binf s4
         jal mainz
 #define lenu s5
-        lw lenu,sz_unc(binf)
-#define szp2 s6
+        lw lenu,4+sz_unc(binf)
+        sd lenu,F_LENU(sp)
 #define lenx s7
-        sub lenx,szp2,binf
+        sub lenx,binf,elfa
+        sd lenx,F_LENX(sp)
 #define adrx s8
-        add adrx,elfa,binf
+        lwu t0,0(binf); andi t0,t0,~3
+        add adrx,elfa,t0
+        sd adrx,F_ADRX(sp)
 
 #define old_sp s9
         mv old_sp,sp
@@ -171,17 +181,15 @@ ok_memfd:
 
 #define dst  a2
 #define src  a0
-#define lsrc a1
+#define lsrc a4  /* len */
         mv dst,sp
-        lw lsrc,sz_cpr(binf)
-        lbu t0,b_method(binf); li t1,M_NRV2B_LE32|(0<<8); beq t0,t1,L350; ebreak
-L350:
-        add t0,lsrc,src; sw t0,F_EOF(old_sp)
-//%rsp:
-//  MATCH_10  old_sp
-//  MATCH_11  &input_eof
-
-//%rbp  === old_sp:  array of F_FRAME
+        lw lsrc,4+sz_cpr(binf)
+        lbu t0,4+b_method(binf); li t1,M_NRV2B_LE32|(0<<8)
+        beq t0,t1,0f; ebreak; 0:
+        addi src,binf,4 + sz_b_info
+        add lsrc,lsrc,src; sd lsrc,F_EOF(old_sp)
+ebreak
+//s9  === old_sp:  array of F_FRAME
 
 #define src  a0
 #define bits a1
@@ -196,17 +204,17 @@ L350:
 /* Prediction omitted for now. */
 
 #define jnextb0np jnextb0yp
-#define jnextb0yp GETBITp; beq retbit,zero,
+#define jnextb0yp GETBITp; beqz retbit,
 #define jnextb1np jnextb1yp
-#define jnextb1yp GETBITp; bne retbit,zero,
+#define jnextb1yp GETBITp; bnez retbit,
 #define GETBITp \
         call getbit
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
-#define jnextb0y GETBIT; beq retbit,zero,
+#define jnextb0y GETBIT; beqz retbit,
 #define jnextb1n jnextb1y
-#define jnextb1y GETBIT; bne retbit,zero,
+#define jnextb1y GETBIT; bnez retbit,
 #define GETBIT \
         call getbit
 
@@ -219,17 +227,38 @@ L350:
 #include "arch/riscv/64/nrv2b_d.S"
 
 getbit:
-        srli retbit,bits,63  # hi bit of 64
-        slli bits,bits,1; beq bits,zero,refill
+        srliw retbit,bits,31  # hi bit of 32
+        addw bits,bits,bits; beqz bits,refill
         ret
 /* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
-        lw bits,(src); addi src,src,4
-        srli retbit,bits,31  # hi bit of 4 bytes fetched
-        slli bits,bits,1; lbu bytpre,(src)  # prefetch
-        ori  bits,bits,1  # the flag bit
-        slli bits,bits,32  # hi 32 bits in 64-bit register
+        lwu          bits,(src); addi src,src,4
+        srliw retbit,bits,31  # hi bit of 4 bytes fetched
+        slli  bits,bits,1; lbu bytpre,(src)  # prefetch
+        addiw   bits,bits,1  # the flag bit
         ret
+
+#define rax a0  /* x10 */
+#define rdx t1  /* x6 */
+copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
+   ebreak
+        add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
+        lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
+        li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap
+        addi len,len,-4  // adjust for termination cases
+        add t0,len,dst
+copy4:
+        lwu rdx,0(rax); addi rax,rax,4
+        sw  rdx,0(dst); addi dst,dst,4; bgeu dst,len,copy4
+        addi len,len,4; lbu rdx,0(rax); beqz len,copy0
+copy1:
+        addi rax,rax,1; lbu rdx,0(dst); addi len,len,-1
+            lbu rdx,0(rax)
+                addi dst,dst,1;  bnez len,copy1
+copy0:
+        ret
+#undef rdx
+#undef rax
 
 n2b_EOFbad:
         ebreak
@@ -259,7 +288,7 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
         mv arg2,s2  // LENU
         li arg1,0  // (%arg1)dst = 0;  // kernel chooses addr
         syscall __NR_mmap
-        sw rv,F_ADRU(old_sp)
+        sd rv,F_ADRU(old_sp)
 
         mv arg1,mfd
         syscall __NR_close
@@ -274,7 +303,7 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
   section ELFMAINZ
         .balign 4
 mainz:
-	jalr binf,ra
+        jalr binf,ra
         .long O_BINFO  // offset of b_info for .text | is_ptinerp | unmap_all_pages
 FOLD:
         // { b_info={sz_unc, sz_cpr, {4 char}}, folded_loader...}

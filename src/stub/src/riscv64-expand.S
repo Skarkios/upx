@@ -156,33 +156,52 @@ upx_mmap_and_fd: .globl upx_mmap_and_fd
 #define NO_METHOD_CHECK 1  /* subsumed here by daisy chain */
 
 getbit:
-        srli retbit,bits,63  # hi bit of 64
-        slli bits,bits,1; beq bits,zero,refill
+        srliw retbit,bits,31  # hi bit of 32
+        addw bits,bits,bits; beqz bits,refill
         ret
 /* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
         lw bits,(src); addi src,src,4
-        srli retbit,bits,31  # hi bit of 4 bytes fetched
+        srliw retbit,bits,31  # hi bit of 4 bytes fetched
         slli bits,bits,1; lbu bytpre,(src)  # prefetch
-        ori  bits,bits,1  # the flag bit
-        slli bits,bits,32  # hi 32 bits in 64-bit register
+        addiw bits,bits,1  # the flag bit
+        ret
+
+#define rax a0  /* x10 */
+#define rdx t1  /* x6 */
+copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
+   ebreak
+        add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
+        lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
+        li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap
+        addi len,len,-4  // adjust for termination cases
+        add t0,len,dst
+copy4:
+        lwu rdx,0(rax); addi rax,rax,4
+        sw  rdx,0(dst); addi dst,dst,4; bgeu dst,len,copy4
+        addi len,len,4; lbu rdx,0(rax); beqz len,copy0
+copy1:
+        addi rax,rax,1; lbu rdx,0(dst); addi len,len,-1
+            lbu rdx,0(rax)
+                addi dst,dst,1;  bnez len,copy1
+copy0:
         ret
 
 /* jump on next bit {0,1} with prediction {y==>likely, n==>unlikely} */
 /* Prediction omitted for now. */
 
 #define jnextb0np jnextb0yp
-#define jnextb0yp GETBITp; beq retbit,zero,
+#define jnextb0yp GETBITp; beqz retbit,
 #define jnextb1np jnextb1yp
-#define jnextb1yp GETBITp; bne retbit,zero,
+#define jnextb1yp GETBITp; bnez retbit,
 #define GETBITp \
         call getbit
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
-#define jnextb0y GETBIT; beq retbit,zero,
+#define jnextb0y GETBIT; beqz retbit,
 #define jnextb1n jnextb1y
-#define jnextb1y GETBIT; bne retbit,zero,
+#define jnextb1y GETBIT; bnea retbit,
 #define GETBIT \
         call getbit
 

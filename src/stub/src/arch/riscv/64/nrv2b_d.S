@@ -29,11 +29,10 @@
    <jreiser@users.sourceforge.net>
 */
 
-        .text
 #ifndef NO_METHOD_CHECK
         cmpb $ M_NRV2B_LE32,methb; jne not_n2b
 #endif
-        li bits,1<<31  // empty; force refill
+        lui bits,0x80000  // (1<<31): empty; force refill
         li len,0
         li disp,-1  // initial displacement
         j top_n2b
@@ -52,16 +51,16 @@ offmore_n2b:
         getnextbp(off)
         jnextb0np offmore_n2b
 
-        addi off,off,-3; blt off,zero,len_n2b  # use previous offset
-        slli off,off,8
-        or   off,off,bytpre; addi src,src,1
-        xori disp,off,~0; beq disp,zero,EOF
+        addiw off,off,-3; bltz off,len_n2b  # use previous offset
+        slliw off,off,8
+        addw  off,off,bytpre; addi src,src,1
+        xori disp,off,~0; beqz disp,EOF
 len_n2b:
         li off,1
         getnextb(len); getnextb(len)  # two bits; cc set on result
-        bne len,zero,gotlen_n2b  # raw 1,2,3 ==> 2,3,4
+        bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4
         mv len,off  # len= 1, the msb
-        addi off,off,3-1  # raw 2.. ==> 5..
+        addiw off,off,3-1  # raw 2.. ==> 5..
 lenmore_n2b:
         getnextb(len)
         jnextb0n lenmore_n2b
@@ -69,7 +68,7 @@ gotlen_n2b:
         li t0,-0xd00
         sltu retbit,t0,disp
         add len,len,off; add len,len,retbit  # len += off + (disp < -0xd00)
-        //NYI call copy@plt; .extern copy
+        call copy
 bot_n2b:  # In: 0==len
         j top_n2b
 
