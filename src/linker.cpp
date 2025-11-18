@@ -708,6 +708,7 @@ void ElfLinkerArm64LE::relocate1(const Relocation *rel, byte *location, upx_uint
         super::relocate1(rel, location, value, type);
 }
 
+// clang-format off
 unsigned extr_imm_RV_JAL(unsigned w);
 unsigned extr_imm_RV_JAL(unsigned w)
 {
@@ -817,6 +818,7 @@ unsigned ins_imm_RVC_JAL(unsigned w)  // RV32 only!
         | ((   1 & (w >> 11)) << 11) ;
 }
 #endif  //}
+// clang-format on
 
 void ElfLinkerRiscv64LE::relocate1(const Relocation *rel, byte *location, upx_uint64_t value,
                                  const char *type) {

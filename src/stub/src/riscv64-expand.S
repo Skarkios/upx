@@ -201,7 +201,7 @@ copy0:
 #define jnextb0n jnextb0y
 #define jnextb0y GETBIT; beqz retbit,
 #define jnextb1n jnextb1y
-#define jnextb1y GETBIT; bnea retbit,
+#define jnextb1y GETBIT; bnez retbit,
 #define GETBIT \
         call getbit
 

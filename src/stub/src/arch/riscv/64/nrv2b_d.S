@@ -33,7 +33,6 @@
         cmpb $ M_NRV2B_LE32,methb; jne not_n2b
 #endif
         lui bits,0x80000  // (1<<31): empty; force refill
-        li len,0
         li disp,-1  // initial displacement
         j top_n2b
 
@@ -46,27 +45,28 @@ lit_n2b:
 top_n2b:
         lbu bytpre,(src)  # prefetch: literal, or bottom 8 bits of offset
         jnextb1yp lit_n2b
-        li off,1
+        li off,1  # the msb
 offmore_n2b:
         getnextbp(off)
         jnextb0np offmore_n2b
 
         addiw off,off,-3; bltz off,len_n2b  # use previous offset
-        slliw off,off,8
-        addw  off,off,bytpre; addi src,src,1
+        slli  off,off,8
+        add   off,off,bytpre; addi src,src,1
         xori disp,off,~0; beqz disp,EOF
 len_n2b:
         li off,1
-        getnextb(len); getnextb(len)  # two bits; cc set on result
-        bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4
-        mv len,off  # len= 1, the msb
-        addiw off,off,3-1  # raw 2.. ==> 5..
+        li len,0
+        getnextb(len); getnextb(len)  # two bits
+        bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4 [add 1==off to len from 2 bits]
+        li off,3  # raw 2.. ==> 5..  [add 3==off to len from ss11]]
+        li len,1  # the msb
 lenmore_n2b:
         getnextb(len)
         jnextb0n lenmore_n2b
 gotlen_n2b:
         li t0,-0xd00
-        sltu retbit,t0,disp
+        sltu retbit,disp,t0
         add len,len,off; add len,len,retbit  # len += off + (disp < -0xd00)
         call copy
 bot_n2b:  # In: 0==len

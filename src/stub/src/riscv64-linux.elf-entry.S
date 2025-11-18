@@ -188,7 +188,6 @@ O_TMPFILE= 020000000  // 0x400000
         beq t0,t1,0f; ebreak; 0:
         addi src,binf,4 + sz_b_info
         add lsrc,lsrc,src; sd lsrc,F_EOF(old_sp)
-ebreak
 //s9  === old_sp:  array of F_FRAME
 
 #define src  a0
@@ -219,7 +218,7 @@ ebreak
         call getbit
 
 /* rotate next bit into bottom bit of reg */
-#define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,retbit
+#define getnextbp(reg) GETBITp; slli reg,reg,1;  add reg,reg,retbit
 #define getnextb(reg)  getnextbp(reg)
 
 // We already checked the method and no filter.
@@ -228,46 +227,51 @@ ebreak
 
 getbit:
         srliw retbit,bits,31  # hi bit of 32
-        addw bits,bits,bits; beqz bits,refill
+        addw bits,bits,bits; beqz bits,refill  # addw 32-bits zero <==> all bits zero
         ret
-/* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
-        lwu          bits,(src); addi src,src,4
+// Unaligned: profile RVA22U64 with required extension Ziccism allows trap (slow)
+     // lbu bytpre,0(src)  # already done
+        lbu bits,  1(src); slli bits,bits,1*8
+        lbu t0,    2(src); or   bits,bits,bytpre
+        lbu bytpre,3(src);     slli t0,t0,2*8
+        or  bits,bits,t0;   slli bytpre,bytpre,3*8
+        or  bits,bits,bytpre
+        lbu bytpre,4(src); addi src,src,4  # prefetch
+
         srliw retbit,bits,31  # hi bit of 4 bytes fetched
-        slli  bits,bits,1; lbu bytpre,(src)  # prefetch
-        addiw   bits,bits,1  # the flag bit
+        slli  bits,bits,1
+        addi  bits,bits,1  # the flag bit
         ret
 
-#define rax a0  /* x10 */
-#define rdx t1  /* x6 */
-copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
-   ebreak
-        add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
-        lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
-        li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap
-        addi len,len,-4  // adjust for termination cases
-        add t0,len,dst
-copy4:
-        lwu rdx,0(rax); addi rax,rax,4
-        sw  rdx,0(dst); addi dst,dst,4; bgeu dst,len,copy4
-        addi len,len,4; lbu rdx,0(rax); beqz len,copy0
-copy1:
-        addi rax,rax,1; lbu rdx,0(dst); addi len,len,-1
-            lbu rdx,0(rax)
-                addi dst,dst,1;  bnez len,copy1
-copy0:
+copy:  // In: len, dst, disp; typically short: len <= 6
+#define tmp off
+        add tmp,dst,disp  # src
+        add len,dst,len  # limit
+        lbu bytpre,0(tmp)  # prime the pump
+0:
+        sb  bytpre,0(dst); addi dst,dst,1
+        lbu bytpre,1(tmp); addi tmp,tmp,1; bne dst,len,0b
         ret
-#undef rdx
-#undef rax
+#undef tmp
 
 n2b_EOFbad:
         ebreak
 eof_n2b:
+        ebreak  # DEBUG only
         lw t0,F_EOF(old_sp)
         bne t0,src,n2b_EOFbad
 
+// propagate F_PMASK(old_sp) into c.lui at D_PMASK(sp)
+        lhu t0,F_PMASK(old_sp)
+        lhu t1,D_PMASK(sp)  # old c.lui
+        srli t0,t0,12-2  # position PMASK to nzimm[16:12]
+        xor t1,t1,t0  # bits which differ
+        andi t0,t0,037<<2  # restrict to nzimm[16:12]
+        xor t0,t0,t1  # change them
+        sh t0,D_PMASK(sp)  # new c.lui
+
 // Write de-compressed 'fold' to file
-        lw t0,F_PMASK(old_sp); sw t0,D_PMASK(sp)  // propagate PAGE_MASK
         lwu arg3,F_LENU(old_sp)
         mv arg2,sp
         mv arg1,mfd

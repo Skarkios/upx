@@ -1831,7 +1831,7 @@ PackLinuxElf64::buildLinuxLoader(
             len += snprintf(&sec[len], sizeof(sec) - len, ",%s", "STRCON");
         }
         (void)len;
-        printf("\n\nbuildLinuxLoader64: %s\n", sec);
+        printf("\n\nbuildLinuxLoader64 (main fold ELF2): %s\n", sec);
         addLoader(sec, nullptr);
         relocateLoader();
         {
