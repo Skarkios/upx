@@ -272,7 +272,7 @@ tc.default.readelf    = $(call tc,m-readelf)
 define tc.default.f-embed_objinfo
 	chmod a-x $1
 	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
-	$(call tc,objcopy) -R .text -R .data -R .bss $1
+	$(call tc,objcopy) -R .text -R .data -R .bss -R .riscv.attributes $1
 	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
 	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
 	$(call tc,objdump) -htr -w $1 | $(BLSQUEEZE) | sed \
@@ -289,7 +289,7 @@ define tc.default.f-embed_objinfo_without_xstrip
 	chmod a-x $1
 	$(call tc,objcopy) -R .text -R .data -R .bss \
 	    -R .comment -R .note -R .note.GNU-stack -R .reginfo \
-	    -R .gnu.attributes -R .MIPS.abiflags \
+	    -R .gnu.attributes -R .MIPS.abiflags -R .riscv.attributes \
             -R .mdebug.eabi32 -R .gcc_compiled_long32 $1
 	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
 
@@ -2196,10 +2196,10 @@ riscv64-linux.elf%.h : tc_list = riscv64-linux.elf default
 riscv64-linux.elf%.h : tc_bfdname = elf64-littleriscv64
 
 tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -O -nostdinc -MMD -MT $@
-tc.riscv64-linux.elf.gcc += -mno-relax -fno-exceptions -fno-asynchronous-unwind-tables -fno-stack-protector
+tc.riscv64-linux.elf.gcc += -mno-relax -mno-riscv-attribute -fno-exceptions -fno-asynchronous-unwind-tables -fno-stack-protector
 tc.riscv64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
-tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attrbutes -R .eh_frame
+tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attributes -R .eh_frame
 # Override of objcopy is needed because:
 #   multiarch-objcopy-2.17 -F elf64-littleriscv64 --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main tmp/riscv64-linux.elf-entry.bin
 #   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
@@ -2218,7 +2218,7 @@ tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
 #   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
 
 riscv64-linux.elf-entry.h : $(srcdir)/src/$$T.S
-	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
+	(echo '#define call jal'; $(call tc,gcc) -MMD -MF tmp/$$T.d -S -O $< -o -) \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o tmp/$T.bin
 	$(call tc,f-embed_objinfo,tmp/$T.bin)
@@ -2248,6 +2248,7 @@ tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
 	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
+	$(call tc,objcopy) -R .riscv.attributes $@
 
 tmp/riscv64-linux.elf-upxfd_linux.o : $(srcdir)/src/upxfd_linux.c
 	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
@@ -2259,6 +2260,7 @@ tmp/riscv64-linux.elf-upxfd_linux.o : $(srcdir)/src/upxfd_linux.c
 
 tmp/riscv64-expand.o: $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c $< -o $@
+	$(call tc,objcopy) -R .riscv.attributes $@
 
 # =====
 
