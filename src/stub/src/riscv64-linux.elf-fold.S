@@ -109,6 +109,7 @@ get_page_mask: .globl get_page_mask
 L_get_page_mask:
         lui rv,0xfffff  // default 4K
         ret
+        .int 0
 
 cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 
@@ -118,7 +119,7 @@ cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 // no 'section', thus '.text'; also loaded first in riscv64-linux.elf-fold.bin.
 // Code from riscv64-linux2.elf-main.c is also .text, and is next.
 fold_begin:
-////    ebreak  # DEBUG
+    ebreak  # DEBUG
         j 6f
 
 Pprotect: .globl Pprotect

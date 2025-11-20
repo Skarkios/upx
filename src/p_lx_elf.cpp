@@ -1731,6 +1731,8 @@ PackLinuxElf32::buildLinuxLoader(
     relocateLoader();
 }
 
+unsigned bb1;
+
 void
 PackLinuxElf64::buildLinuxLoader(
     upx_byte const *const proto,
@@ -1880,6 +1882,10 @@ PackLinuxElf64::buildLinuxLoader(
         h.sz_cpr = sz_cpr;  // actual length used
         if (r != UPX_E_OK || h.sz_cpr >= h.sz_unc)
             throwInternalError("loader compression failed");
+        MemBuffer mb_uncLoader(10 + sz_unc);
+        unsigned unc_len;
+        r = upx_decompress(sizeof(h) + cprLoader, sz_cpr,
+            mb_uncLoader, &unc_len, method, nullptr);
     }
     set_te32(&h.sz_cpr, h.sz_cpr);
     set_te32(&h.sz_unc, h.sz_unc);

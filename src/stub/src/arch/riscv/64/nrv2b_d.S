@@ -34,26 +34,49 @@
 #endif
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
+
+#define DEBUG_NRV 0
+#if DEBUG_NRV  //{
+#define dst0 x31
+        mv dst0,dst
+#define src0 x30
+        mv src0,src
+#define prov0 x29
+        lui t0,0x100000>>12
+        sub sp,sp,t0
+        mv prov0,sp
+#define prov x28
+        mv prov,sp
+#endif  // DEBUG_NRV}
+
         j top_n2b
 
 #undef EOF
 #define EOF eof_n2b
 
 lit_n2b:
-        addi src,src,1; sb bytpre,(dst)
+        addi src,src,1; sb pre8,(dst)
         addi dst,dst,1
 top_n2b:
-        lbu bytpre,(src)  # prefetch: literal, or bottom 8 bits of offset
+        lbu pre8,(src)  # prefetch: literal, or bottom 8 bits of offset
         jnextb1yp lit_n2b
+#if DEBUG_NRV  //{
+    sub off,src,src0
+    sw off,0(prov)
+    sw bits,4(prov)
+  # ebreak  # DEBUG_NRV
+#endif  // DEBUG_NRV }
         li off,1  # the msb
 offmore_n2b:
         getnextbp(off)
         jnextb0np offmore_n2b
 
         addiw off,off,-3; bltz off,len_n2b  # use previous offset
-        slli  off,off,8
-        add   off,off,bytpre; addi src,src,1
-        xori disp,off,~0; beqz disp,EOF
+        slli  off,off,8; addi src,src,1  # account for previous fetch
+// XXX 2GB; addw needs sign extend (32-->64) at EOF
+        addw  off,off,pre8; lbu pre8,0(src)  # prefecth
+        xori disp,off,~0  # no xoriw, so need previous addw
+        beqz disp,l_EOF
 len_n2b:
         li off,1
         li len,0
@@ -66,11 +89,31 @@ lenmore_n2b:
         jnextb0n lenmore_n2b
 gotlen_n2b:
         li t0,-0xd00
-        sltu retbit,disp,t0
-        add len,len,off; add len,len,retbit  # len += off + (disp < -0xd00)
+        sltu rbit,disp,t0
+        add len,len,off; add len,len,rbit  # len += off + (disp < -0xd00)
+#if DEBUG_NRV  //{
+    sub t0,dst,dst0
+    sw t0,    2*4(prov)
+    sb len,3+ 2*4(prov)
+    sw disp,  3*4(prov)
+
+    lwu t0,0(prov)  # delta(src)
+    li t1,0x1080
+    sltu t1,t1,t0
+    beqz t1,0f
+      ebreak  # DEBUG_NRV
+0:
+    addi prov,prov,4*4
+#endif  // DEBUG_NRV }
         call copy
-bot_n2b:  # In: 0==len
         j top_n2b
+
+l_EOF:
+#if DEBUG_MRV  //{
+        lui t0,0x100000>>12
+        add sp,sp,t0
+#endif  // DEBUG_NRV }
+        j EOF
 
 #ifndef NO_METHOD_CHECK  //{
 not_n2b:

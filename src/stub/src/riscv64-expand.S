@@ -104,8 +104,8 @@ decompress:  // (src *, cpr_len, dst *, &dstlen);
 #define off  a3
 #define len  a4
 #define disp a5
-#define retbit t0
-#define bytpre t1
+#define rbit t0
+#define pre8 t1
 
 
   .globl eof
@@ -156,21 +156,21 @@ upx_mmap_and_fd: .globl upx_mmap_and_fd
 #define NO_METHOD_CHECK 1  /* subsumed here by daisy chain */
 
 getbit:
-        srliw retbit,bits,31  # hi bit of 32
+        srliw rbit,bits,31  # hi bit of 32
         addw bits,bits,bits; beqz bits,refill
         ret
 /* On refill: prefetch next byte, for latency reduction on literals and offsets. */
 refill:
         lw bits,(src); addi src,src,4
-        srliw retbit,bits,31  # hi bit of 4 bytes fetched
-        slli bits,bits,1; lbu bytpre,(src)  # prefetch
+        srliw rbit,bits,31  # hi bit of 4 bytes fetched
+        slli bits,bits,1; lbu pre8,(src)  # prefetch
         addiw bits,bits,1  # the flag bit
         ret
 
 #define rax a0  /* x10 */
 #define rdx t1  /* x6 */
 copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
-   ebreak
+   ebreak  // riscv46-expand copy
         add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
         lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
         li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap
@@ -191,22 +191,22 @@ copy0:
 /* Prediction omitted for now. */
 
 #define jnextb0np jnextb0yp
-#define jnextb0yp GETBITp; beqz retbit,
+#define jnextb0yp GETBITp; beqz rbit,
 #define jnextb1np jnextb1yp
-#define jnextb1yp GETBITp; bnez retbit,
+#define jnextb1yp GETBITp; bnez rbit,
 #define GETBITp \
         call getbit
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
-#define jnextb0y GETBIT; beqz retbit,
+#define jnextb0y GETBIT; beqz rbit,
 #define jnextb1n jnextb1y
-#define jnextb1y GETBIT; bnez retbit,
+#define jnextb1y GETBIT; bnez rbit,
 #define GETBIT \
         call getbit
 
 /* rotate next bit into bottom bit of reg */
-#define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,retbit
+#define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,rbit
 #define getnextb(reg)  getnextbp(reg)
 
   section NRV2E
