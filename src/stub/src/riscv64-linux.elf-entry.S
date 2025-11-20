@@ -273,7 +273,7 @@ eof_n2b:
 
 // Write de-compressed 'fold' to file
     ebreak
-        lwu arg3,F_LENX(old_sp)
+        lwu arg3,F_LENU(old_sp)
         mv arg2,sp
         lwu arg1,F_MFD(old_sp)
 L360:  // /dev/shm might be restricted to 8KiB at a time!
@@ -290,7 +290,7 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
         lwu arg5,F_MFD(sp)
         li arg4,MAP_PRIVATE
         li arg3,PROT_EXEC|PROT_READ  // FIXME: add PROT_WRITE for DEBUG only
-        mv arg2,s2  // LENU
+        lwu arg2,F_LENU(sp)
         li arg1,0  // (%arg1)dst = 0;  // kernel chooses addr
         syscall __NR_mmap; bgez rv,0f; ebreak; 0:
         sd rv,F_ADRU(sp)
