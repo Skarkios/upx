@@ -272,7 +272,6 @@ eof_n2b:
         sh t0,D_PMASK(sp)  # new c.lui
 
 // Write de-compressed 'fold' to file
-    ebreak
         lwu arg3,F_LENU(old_sp)
         mv arg2,sp
         lwu arg1,F_MFD(old_sp)
@@ -285,7 +284,6 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
         mv sp,old_sp
 
 // Map unfolded code the SELinux way
-    ebreak
         li arg6,0  // offset
         lwu arg5,F_MFD(sp)
         li arg4,MAP_PRIVATE
