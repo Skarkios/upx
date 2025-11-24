@@ -106,7 +106,7 @@ _start: .globl _start
 
 ////    nop; int3  # uncomment for debugging
 #define szp2 s6
-        lwu szp2,0(t0)  // sz_pack2
+        lw szp2,0(t0)  // sz_pack2
         sub elfa,t0,szp2
 
         ld s0,0(sp)  // argc
@@ -159,23 +159,25 @@ O_TMPFILE= 020000000  // 0x400000
 9:
         sw rv,F_MFD(sp)
 
-#define binf s4
+#define binf s1
         jal mainz
-#define lenu s5
-        lw lenu,4+sz_unc(binf)
-        sd lenu,F_LENU(sp)
-#define lenx s7
-        sub lenx,binf,elfa
-        sw lenx,F_LENX(sp)
-#define adrx s8
-        lwu t0,0(binf); andi t0,t0,~3
-        add adrx,elfa,t0
-        sd adrx,F_ADRX(sp)
+        sub rv,binf,elfa
+        sw rv,F_LENX(sp)
+
+unmap_all_pages= (1<<1)
+is_ptinterp=     (1<<0)
+
+        lw rv,0(binf); andi rv,rv,~(is_ptinterp|unmap_all_pages)
+        add rv,rv,elfa
+        sd rv,F_ADRX(sp)
+
+        lw rv,4+sz_unc(binf)
+        sd rv,F_LENU(sp)
 
 #define old_sp s9
         mv old_sp,sp
-// alloca()
-        sub sp,sp,lenu; andi sp,sp,-2*NBPW
+// alloca(lenu)
+        sub rv,sp,rv; andi sp,rv,-2*NBPW
 
 // Decompress the rest of this loader, and jump to it.
 
@@ -272,9 +274,9 @@ eof_n2b:
         sh t0,D_PMASK(sp)  # new c.lui
 
 // Write de-compressed 'fold' to file
-        lwu arg3,F_LENU(old_sp)
+        lw arg3,F_LENU(old_sp)
         mv arg2,sp
-        lwu arg1,F_MFD(old_sp)
+        lw arg1,F_MFD(old_sp)
 L360:  // /dev/shm might be restricted to 8KiB at a time!
         syscall __NR_write
         add arg2,arg2,rv  // ptr += count
@@ -285,15 +287,15 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
 
 // Map unfolded code the SELinux way
         li arg6,0  // offset
-        lwu arg5,F_MFD(sp)
+        lw arg5,F_MFD(sp)
         li arg4,MAP_PRIVATE
         li arg3,PROT_EXEC|PROT_READ  // FIXME: add PROT_WRITE for DEBUG only
-        lwu arg2,F_LENU(sp)
+        lw arg2,F_LENU(sp)
         li arg1,0  // (%arg1)dst = 0;  // kernel chooses addr
         syscall __NR_mmap; bgez rv,0f; ebreak; 0:
         sd rv,F_ADRU(sp)
 
-        lwu arg1,F_MFD(sp)
+        lw arg1,F_MFD(sp)
         syscall __NR_close
 
 // Use the copy.

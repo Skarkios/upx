@@ -51,6 +51,8 @@ f_expand: .globl f_expand // f_expand(b_info *, dst, &dstlen)
 #define fx_src a0
 #define fx_dst a1
 #define fx_dstlen a2
+  ebreak
+    PUSH2 s0,s1  // MATCH_93  ABI callee saved
     PUSH4 fx_src,fx_dst,fx_dstlen,ra  // MATCH_95 params to unfilter and sync_cache
 
 // Input to de-compressor:
@@ -68,6 +70,7 @@ f_expand: .globl f_expand // f_expand(b_info *, dst, &dstlen)
     mv a3,a0  // save retval
 
     POP4 fx_src,fx_dst,fx_dstlen,ra  // MATCH_95  fx_src,fx_dst,fx_dstlen,ra
+    POP2 s0,s1  // MATCH_93  ABI
     lw fx_dst,(fx_dst)  // actual length used by decompressor
     PUSH3 fx_src,fx_dst,a2   // MATCH_96  params for sync_cache
     lbu a3,b_ftid(sp)
@@ -170,7 +173,6 @@ refill:
 #define rax a0  /* x10 */
 #define rdx t1  /* x6 */
 copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
-   ebreak  // riscv46-expand copy
         add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
         lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
         li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap
