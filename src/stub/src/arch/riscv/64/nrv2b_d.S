@@ -66,6 +66,7 @@ top_n2b:
     sw bits,4(prov)
   # ebreak  # DEBUG_NRV
 #endif  // DEBUG_NRV }
+#define off val
         li off,1  # the msb
 offmore_n2b:
         getnextbp(off)
@@ -76,21 +77,28 @@ offmore_n2b:
 // XXX 2GB; addw needs sign extend (32-->64) at EOF
         addw  off,off,pre8; lbu pre8,0(src)  # prefecth
         xori disp,off,~0  # no xoriw, so need previous addw
+#undef off
         beqz disp,l_EOF
 len_n2b:
-        li off,1
-        li len,0
-        getnextb(len); getnextb(len)  # two bits
+#define off ta
+	li off,1
+#define len val
+        li len,0; getnextb(len); getnextb(len)  # two bits
         bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4 [add 1==off to len from 2 bits]
         li off,3  # raw 2.. ==> 5..  [add 3==off to len from ss11]]
+
         li len,1  # the msb
 lenmore_n2b:
         getnextb(len)
         jnextb0n lenmore_n2b
 gotlen_n2b:
-        li t0,-0xd00
-        sltu rbit,disp,t0
-        add len,len,off; add len,len,rbit  # len += off + (disp < -0xd00)
+        add len,len,off
+        li ta,-0xd00
+        sltu ta,disp,ta
+	add len,len,ta  # len += (disp < -0xd00)
+#undef len
+#undef off
+
 #if DEBUG_NRV  //{
     sub t0,dst,dst0
     sw t0,    2*4(prov)
@@ -113,7 +121,7 @@ l_EOF:
         lui t0,0x100000>>12
         add sp,sp,t0
 #endif  // DEBUG_NRV }
-        j EOF
+        j eof_n2b
 
 #ifndef NO_METHOD_CHECK  //{
 not_n2b:

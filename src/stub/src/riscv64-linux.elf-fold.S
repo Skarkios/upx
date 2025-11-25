@@ -217,7 +217,7 @@ proc_self_exe:
 
 no_PSE:
         ld arg1,F_ADRX(rbp)
-        lwu arg2,F_LENX(rbp)
+        lw arg2,F_LENX(rbp)
         andi arg1,arg1,~(is_ptinterp | unmap_all_pages)
 
         ld arg5,F_ELFA(rbp)  # ELFA | is_ptinterp
@@ -226,7 +226,6 @@ no_PSE:
         mv  s1,arg5  # save ELFA
         addi sp,sp,-OVERHEAD
         mv arg3,sp  # &ELf64_Ehdr temporary space
-    ebreak  // DEBUG
         call upx_main2  # Out: rv= entry
 
 // entry= upx_main2(

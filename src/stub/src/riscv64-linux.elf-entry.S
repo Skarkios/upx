@@ -192,71 +192,9 @@ is_ptinterp=     (1<<0)
         add lsrc,lsrc,src; sd lsrc,F_EOF(old_sp)
 //s9  === old_sp:  array of F_FRAME
 
-#define src  a0
-#define bits a1
-#define dst  a2
-#define off  a3
-#define len  a4
-#define disp a5
-#define rbit t0
-#define pre8 t1
-
-/* jump on next bit {0,1} with prediction {y==>likely, n==>unlikely} */
-/* Prediction omitted for now. */
-
-#define jnextb0np jnextb0yp
-#define jnextb0yp GETBITp; beqz rbit,
-#define jnextb1np jnextb1yp
-#define jnextb1yp GETBITp; bnez rbit,
-#define GETBITp \
-        call getbit
-
-/* Same, but without prefetch (not useful for length of match.) */
-#define jnextb0n jnextb0y
-#define jnextb0y GETBIT; beqz rbit,
-#define jnextb1n jnextb1y
-#define jnextb1y GETBIT; bnez rbit,
-#define GETBIT \
-        call getbit
-
-/* rotate next bit into bottom bit of reg */
-#define getnextbp(reg) GETBITp; slli reg,reg,1;  add reg,reg,rbit
-#define getnextb(reg)  getnextbp(reg)
-
-// We already checked the method and no filter.
-#define NO_METHOD_CHECK 1
-#include "arch/riscv/64/nrv2b_d.S"
-
-getbit:
-        srliw rbit,bits,31  # hi bit of 32
-        addw bits,bits,bits  # slliw is 4 bytes
-        beqz bits,refill  # addw 32-bits zero <==> all bits zero
-        ret
-refill:
-// Unaligned: profile RVA22U64 with required extension Ziccism allows trap (slow)
-     // lbu pre8,0(src)  # already done
-        lbu bits,  1(src); slli bits,bits,1*8
-        lbu t0,    2(src); or   bits,bits,pre8
-        lbu pre8,3(src);     slli t0,t0,2*8
-        or  bits,bits,t0;   slli pre8,pre8,3*8
-        or  bits,bits,pre8
-        lbu pre8,4(src); addi src,src,4  # prefetch
-
-        srliw rbit,bits,31  # hi bit of 4 bytes fetched
-        slli  bits,bits,1
-        addi  bits,bits,1  # the flag bit
-        ret
-
-copy:  // In: len, dst, disp; typically short: len <= 6
-#define tmp off
-        add tmp,dst,disp  # src
-        add len,dst,len  # limit
-        lbu pre8,0(tmp)  # prime the pump
-0:
-        sb  pre8,0(dst); addi dst,dst,1
-        lbu pre8,1(tmp); addi tmp,tmp,1; bne dst,len,0b
-        ret
-#undef tmp
+#include "getbit.h"
+	jal x5,getbit
+#include "getbit.S"
 
 n2b_EOFbad:
         ebreak  # elf-entry n2b_EOFbad
