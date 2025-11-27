@@ -35,7 +35,8 @@ NBPW = 8
 #include "arch/riscv/64/macros.S"
 #include "arch/riscv/64/regs.h"
 
-.macro call subr; jal \subr; .endm
+.macro call  subr; jal  \subr; .endm
+.macro callr subr; jalr \subr; .endm
 
   section EXP_HEAD
 
@@ -66,9 +67,9 @@ f_expand: .globl f_expand // f_expand(b_info *, dst, &dstlen)
     addi arg1,fx_src,sz_binfo
         // fall into daisy-chain of decompressors
 
-#include "src/getbit.h"
+#include "riscv64-getbit.h"
     jal x5,decompress  # x5= &getbit
-#include "src/getbit.S"
+#include "riscv64-getbit.S"
 
 decompress:  // (src *, cpr_len, dst *, &dstlen);
 

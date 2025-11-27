@@ -291,6 +291,7 @@ define tc.default.f-embed_objinfo_without_xstrip
 	    -R .comment -R .note -R .note.GNU-stack -R .reginfo \
 	    -R .gnu.attributes -R .MIPS.abiflags -R .riscv.attributes \
             -R .mdebug.eabi32 -R .gcc_compiled_long32 $1
+	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
 	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
 
 #
@@ -2218,9 +2219,7 @@ tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
 #   multiarch-objcopy-2.17: tmp/riscv64-linux.elf-entry.bin: Invalid bfd target
 
 riscv64-linux.elf-entry.h : $(srcdir)/src/$$T.S
-	(echo '#define call jal'; $(call tc,gcc) -MMD -MF tmp/$$T.d -S -O $< -o -) \
-	    | sed 's/@plt//' \
-	    | $(call tc,gcc) -c -x assembler-with-cpp - -o tmp/$T.bin
+	$(call tc,gcc) -c $< -o tmp/riscv64-linux.elf-entry.bin
 	$(call tc,f-embed_objinfo,tmp/$T.bin)
 	$(call tc,bin2h) tmp/$T.bin $@
 

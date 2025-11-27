@@ -1,3 +1,4 @@
+// Must be first in this file to make "jal x5,xin_..." work.
 getbit:
         srliw rbit,bits,31  # hi bit of 32
         addw bits,bits,bits; beqz bits,refill
@@ -15,7 +16,6 @@ refill:
                             or   bits,bits,rbit
                             slli pre8,pre8,3*8
                             or   bits,bits,pre8
-	lbu pre8,4(src)  # prefetch
 #endif  //}
 	addi src,src,4  
 

@@ -93,7 +93,6 @@ D_XSIGSEGV= 1*NBPW
 #define ta  a2  /* x12    arg3 */
 #define rdx a1  /* x11    arg2 */
 #define rax a0  /* x10 rv arg1 */
-#define binf s1 /* x9  */
 #define rbp s0  /* x8     fp   */
 
 #define naux x5
@@ -108,11 +107,12 @@ L_get_page_mask:
 cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 
 // IN: [ADRX,+LENX): compressed data; [ADRU,+LENU): expanded fold (w/ upx_main2)
-// %sp= %rbp= &F_ADRX; s1/ O_BINFO | is_ptinterp | unmap_all_pages
+// %sp= %rbp= &F_ADRX
 
 // no 'section', thus '.text'; also loaded first in riscv64-linux.elf-fold.bin.
 // Code from riscv64-linux2.elf-main.c is also .text, and is next.
 fold_begin:
+    ebreak  # DEBUG
         mv rbp,sp
         j 6f
 
@@ -139,15 +139,11 @@ Palign:
         add arg2,arg2,ta
         j sysgo
 
-6: // (fold begin) copy is_interp bit from binf to F_ELFA(rbp)
-#define binf s1
-        lw binf,0(binf)
-        ld ta,F_ELFA(rbp); andi tb,binf,is_ptinterp
-        or ta,ta,tb;
-        sd ta,F_ELFA(rbp)
+6: // (fold begin) F_ADRX(rbp) has is_ptinerp | unmap_all_pages
+        ld s1,F_ADRX(rbp)
 
 // if !unmap_all_pages then need space on stack for result of readlinkat("/proc/self/exe",...)
-        andi ta,binf,unmap_all_pages; bnez ta,no_PSE
+        andi ta,s1,unmap_all_pages; bnez ta,no_PSE
 
         li ta,2*PATH_MAX + NBPW + 4 +1
         sub ta,sp,ta; andi sp,ta,-2*NBPW
@@ -216,8 +212,8 @@ proc_self_exe:
         mv sp,rbp
 
 no_PSE:
-        ld arg1,F_ADRX(rbp)
-        lw arg2,F_LENX(rbp)
+        ld  arg1,F_ADRX(rbp)
+        lwu arg2,F_LENX(rbp)
         andi arg1,arg1,~(is_ptinterp | unmap_all_pages)
 
         ld arg5,F_ELFA(rbp)  # ELFA | is_ptinterp
@@ -256,16 +252,16 @@ p_memsz= 5*NBPW
         mv arg1,s1; call L_munmap  # discard C_TEXT compressed data
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
-        lw ta,F_MFD(rbp); bltz ta,no_pse_map
+        lwu ta,F_MFD(rbp); bltz ta,no_pse_map
         li arg6,0  # 0 offset
-        lw arg5,F_MFD(rbp)
+        lwu arg5,F_MFD(rbp)
         li arg4,MAP_PRIVATE
         li arg3,PROT_READ
         li arg2,1<<12
         li arg1,0
         call L_mmap
 
-        lw arg1,F_MFD(rbp)
+        lwu arg1,F_MFD(rbp)
         call L_close
 
 no_pse_map:

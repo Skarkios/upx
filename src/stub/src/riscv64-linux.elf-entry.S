@@ -31,16 +31,18 @@
 
 #include "arch/riscv/64/macros.S"
 #include "arch/riscv/64/regs.h"
+
+#define bits x11 /* x22  a1  arg2 */
+#define ta x12   /* x12  a2  arg3 */
+#define tb x13   /* x13  a3  arg4 */
+
 NBPW= 8
 
 /* These from /usr/include/unistd_64.h */
 __NR_close=     57
 __NR_exit=      93
-__NR_ftruncate= 64
 __NR_memfd_create= 279
 __NR_mmap=     222
-__NR_mprotect= 226
-__NR_msync=    227
 __NR_openat=    56
 __NR_write=     64
 
@@ -102,42 +104,41 @@ D_XSIGSEGV= 1*NBPW
 #define elfa s3
 sz_pack2= .-4
 _start: .globl _start
-        jal t0,0f; 0: addi t0,t0,-8  // &sz_pack2
+        jal ta,0f; 0: addi ta,ta,-8  // &sz_pack2
 
 ////    nop; int3  # uncomment for debugging
-#define szp2 s6
-        lw szp2,0(t0)  // sz_pack2
-        sub elfa,t0,szp2
+        lwu tb,0(ta)  // sz_pack2
+        sd tb,F_EOF(sp)
+        sub elfa,ta,tb
 
         ld s0,0(sp)  // argc
         addi s1,sp,NBPW  // &argv
 
         addi sp,sp,-F_FRAME
         sd elfa,F_ELFA(sp)
-        sd szp2,F_EOF(sp)
 
         //NYI lea cancel_dummy(%rip),%r15
 
   section ELFMAINX2
 
 // find auxv
-        slli t0,s0,3  // NBPW * argc
-        add t0,t0,s1  // end argv
+        slli ta,s0,3  // NBPW * argc
+        add ta,ta,s1  // end argv
 0: // find end of env
-        addi t0,t0,NBPW  // &env[k]
-        ld t1,(t0); bnez t1,0b
+        addi ta,ta,NBPW  // &env[k]
+        ld tb,(ta); bnez tb,0b
 
 // find AT_PAGESZ in auxv
-        addi t0,t0,NBPW  // &auxv
-        li a7,AT_PAGESZ  // desired key
+        addi ta,ta,NBPW  // &auxv
+        li rv,AT_PAGESZ  // desired key
 0:
-        ld t1,(t0); ld t2,NBPW(t0); addi t0,t0,2*NBPW
-        beq t1,a7,9f  // found it
-        bnez t1,0b  // keep searching
-        li t2,0x1000  // default PAGE_SIZE
+        ld tb,(ta); ld bits,NBPW(ta); addi ta,ta,2*NBPW
+        beq tb,rv,9f  // found it
+        bnez tb,0b  // keep searching
+        li bits,0x1000  // default PAGE_SIZE
 9:
-        neg a7,t2  // PAGE_MASK
-        sd a7,F_PMASK(sp)
+        neg rv,bits  // PAGE_MASK
+        sd rv,F_PMASK(sp)
 // Create anonymous temporary file on mfd; like upxfd_create
         jal arg1,0f
         .asciz "upx"  // 4==size; no .balign needed
@@ -164,14 +165,11 @@ O_TMPFILE= 020000000  // 0x400000
         sub rv,binf,elfa
         sw rv,F_LENX(sp)
 
-unmap_all_pages= (1<<1)
-is_ptinterp=     (1<<0)
-
-        lw rv,0(binf); andi rv,rv,~(is_ptinterp|unmap_all_pages)
+        lwu rv,0(binf)
         add rv,rv,elfa
         sd rv,F_ADRX(sp)
 
-        lw rv,4+sz_unc(binf)
+        lwu rv,4+sz_unc(binf)
         sd rv,F_LENU(sp)
 
 #define old_sp s9
@@ -181,40 +179,44 @@ is_ptinterp=     (1<<0)
 
 // Decompress the rest of this loader, and jump to it.
 
-#define dst  a2
-#define src  a0
-#define lsrc a4  /* len */
+#include "riscv64-getbit.h"
         mv dst,sp
-        lw lsrc,4+sz_cpr(binf)
-        lbu t0,4+b_method(binf); li t1,M_NRV2B_LE32|(0<<8)
-        beq t0,t1,0f; ebreak; 0:  # elf_entry wrong method
-        addi src,binf,4 + sz_b_info
-        add lsrc,lsrc,src; sd lsrc,F_EOF(old_sp)
+        lwu rv,4+sz_cpr(binf)
+        lbu ta,4+b_method(binf)
+	li  tb,M_NRV2B_LE32|(0<<8)
+        beq ta,tb,0f; ebreak; 0:  # elf_entry wrong method
+	lwu ta,4+sz_unc(binf)
+        addi src,binf,4 + sz_b_info  # last use of register binf
+        add rv,rv,src
+        sd  rv,F_EOF(old_sp)
 //s9  === old_sp:  array of F_FRAME
 
-#include "getbit.h"
-	jal x5,getbit
-#include "getbit.S"
+	jal x5,xin_n2b
+
+#include "riscv64-getbit.S"
+#define NO_METHOD_CHECK 1
+xin_n2b:
+#include "arch/riscv/64/nrv2b_d.S"
 
 n2b_EOFbad:
         ebreak  # elf-entry n2b_EOFbad
 eof_n2b:
-        ld t0,F_EOF(old_sp)
-        bne t0,src,n2b_EOFbad
+        ld  ta,F_EOF(old_sp)
+        bne ta,src,n2b_EOFbad
 
 // propagate F_PMASK(old_sp) into c.lui at D_PMASK(sp)
-        lhu t0,F_PMASK(old_sp)
-        lhu t1,D_PMASK(sp)  # old c.lui
-        srli t0,t0,12-2  # position PMASK to nzimm[16:12]
-        xor t1,t1,t0  # bits which differ
-        andi t0,t0,037<<2  # restrict to nzimm[16:12]
-        xor t0,t0,t1  # change them
-        sh t0,D_PMASK(sp)  # new c.lui
+        lhu ta,F_PMASK(old_sp)
+        lhu tb,D_PMASK(sp)  # old c.lui
+        srli ta,ta,12-2  # position PMASK to nzimm[16:12]
+        xor tb,tb,ta  # bits which differ
+        andi ta,ta,037<<2  # restrict to nzimm[16:12]
+        xor ta,ta,tb  # change them
+        sh ta,D_PMASK(sp)  # new c.lui
 
 // Write de-compressed 'fold' to file
-        lw arg3,F_LENU(old_sp)
+        lwu arg3,F_LENU(old_sp)
         mv arg2,sp
-        lw arg1,F_MFD(old_sp)
+        lwu arg1,F_MFD(old_sp)
 L360:  // /dev/shm might be restricted to 8KiB at a time!
         syscall __NR_write
         add arg2,arg2,rv  // ptr += count
@@ -225,15 +227,15 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
 
 // Map unfolded code the SELinux way
         li arg6,0  // offset
-        lw arg5,F_MFD(sp)
+        lwu arg5,F_MFD(sp)
         li arg4,MAP_PRIVATE
         li arg3,PROT_EXEC|PROT_READ  // FIXME: add PROT_WRITE for DEBUG only
-        lw arg2,F_LENU(sp)
+        lwu arg2,F_LENU(sp)
         li arg1,0  // (%arg1)dst = 0;  // kernel chooses addr
         syscall __NR_mmap; bgez rv,0f; ebreak; 0:
         sd rv,F_ADRU(sp)
 
-        lw arg1,F_MFD(sp)
+        lwu arg1,F_MFD(sp)
         syscall __NR_close
 
 // Use the copy.

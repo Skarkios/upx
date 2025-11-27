@@ -29,21 +29,22 @@
    <jreiser@users.sourceforge.net>
 */
 
+xin_n2b: .globl xin_n2b
 #ifndef NO_METHOD_CHECK
         cmpb $ M_NRV2B_LE32,methb; jne not_n2b
 #endif
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
 
-#define DEBUG_NRV 0
+#define DEBUG_NRV 1
 #if DEBUG_NRV  //{
 #define dst0 x31
         mv dst0,dst
 #define src0 x30
         mv src0,src
 #define prov0 x29
-        lui t0,0x100000>>12
-        sub sp,sp,t0
+        lui prov0,0x100000>>12
+        sub sp,sp,prov0
         mv prov0,sp
 #define prov x28
         mv prov,sp
@@ -60,13 +61,12 @@ lit_n2b:
 top_n2b:
         lbu pre8,(src)  # prefetch: literal, or bottom 8 bits of offset
         jnextb1yp lit_n2b
+#define off val
 #if DEBUG_NRV  //{
     sub off,src,src0
     sw off,0(prov)
     sw bits,4(prov)
-  # ebreak  # DEBUG_NRV
 #endif  // DEBUG_NRV }
-#define off val
         li off,1  # the msb
 offmore_n2b:
         getnextbp(off)
@@ -96,30 +96,29 @@ gotlen_n2b:
         li ta,-0xd00
         sltu ta,disp,ta
 	add len,len,ta  # len += (disp < -0xd00)
-#undef len
 #undef off
 
 #if DEBUG_NRV  //{
-    sub t0,dst,dst0
-    sw t0,    2*4(prov)
+    sub x27,dst,dst0
+    sw  x27,  2*4(prov)
     sb len,3+ 2*4(prov)
     sw disp,  3*4(prov)
 
-    lwu t0,0(prov)  # delta(src)
-    li t1,0x1080
-    sltu t1,t1,t0
-    beqz t1,0f
-      ebreak  # DEBUG_NRV
+    lwu x27,0(prov)  # delta(src)
+    li x26,0x10000
+    sltu x26,x26,x27
+    beqz x26,0f
 0:
     addi prov,prov,4*4
 #endif  // DEBUG_NRV }
-        call copy
+#undef len
+        jalr 0x32(x5)  # call copy
         j top_n2b
 
 l_EOF:
-#if DEBUG_MRV  //{
-        lui t0,0x100000>>12
-        add sp,sp,t0
+#if DEBUG_NRV  //{
+        lui ta,0x100000>>12
+        add sp,sp,ta
 #endif  // DEBUG_NRV }
         j eof_n2b
 

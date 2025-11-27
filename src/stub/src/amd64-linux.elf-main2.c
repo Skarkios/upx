@@ -190,6 +190,7 @@ err_exit(int a)
 {
     (void)a;  // debugging convenience
     DPRINTF("err_exit %%d\\n", a);
+    my_bkpt((void *)(long)a);
     exit(127);
 }
 #endif  //}
