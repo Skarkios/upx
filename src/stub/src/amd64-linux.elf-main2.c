@@ -305,7 +305,10 @@ make_hatch(
     unsigned long a = (unsigned long)next_unc;
     int *hatch = (int *)((3u & -a) + a);
     int code[3] =  {
-        0,0,0  //NYI illegal instruction
+	  0x00000073     // ecall for munmap(ADRU, LENU)
+        , 0x72c2         // ld t0,48(sp)
+	| (0x6121 << 16) // addi sp,sp,64
+	, 0x9282         // jalr t0
     };
     DPRINTF("make_hatch %%p %%p %%x\\n", phdr, next_unc, frag_mask);
     if (phdr->p_type==PT_LOAD && phdr->p_flags & PF_X) {

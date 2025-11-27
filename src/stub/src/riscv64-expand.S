@@ -54,24 +54,41 @@ f_expand: .globl f_expand // f_expand(b_info *, dst, &dstlen)
 #define fx_src arg1
 #define fx_dst arg2
 #define fx_dstlen arg3
-  ebreak  // f_expand
-    PUSH2 s0,s1  // MATCH_93  ABI callee saved
+
+F_FRAME= 8*NBPW
+F_EOFDST=7*NBPW
+F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
+//F_RDX=  5*NBPW
+//F_LENU= 4*NBPW
+//F_ADRU= 3*NBPW
+//F_ELFA= 2*NBPW
+//F_LENX= 1*NBPW  # 4 bytes only
+//F_MFD=  1*NBPW + 4
+//F_ADRX= 0*NBPW
+
+    PUSH4 s0,s1,zero,zero  // MATCH_93  ABI callee saved; MATCH_92 F_EOFSRC, F_EOFDST
     PUSH4 fx_src,fx_dst,fx_dstlen,ra  // MATCH_95 params to unfilter and sync_cache
 
 // Input to de-compressor:
 #define meth arg5
+#define tmp  arg6
+	lwu tmp,sz_unc(fx_src)
+	add tmp,tmp,fx_dst
+	sd  tmp,F_EOFDST(sp)
     lbu meth,b_method(fx_src)
     mv arg4,fx_dstlen
     mv arg3,fx_dst
-    lw arg2,sz_cpr(fx_src)
+    lwu arg2,sz_cpr(fx_src)
     addi arg1,fx_src,sz_binfo
-        // fall into daisy-chain of decompressors
+        add tmp,arg2,arg1
+        sd  tmp,F_EOFSRC(sp)
+#undef tmp
 
 #include "riscv64-getbit.h"
-    jal x5,decompress  # x5= &getbit
+    jal x5,decompress  # x5= t0= &getbit  Note: x5 is same register as t0
 #include "riscv64-getbit.S"
 
-decompress:  // (src *, cpr_len, dst *, &dstlen);
+decompress:  // (src *, cpr_len, dst *, &dstlen, method);  daisy chain of decompressors
 
 #define NO_METHOD_CHECK 1  /* subsumed here by daisy chain */
 
@@ -84,29 +101,31 @@ decompress:  // (src *, cpr_len, dst *, &dstlen);
 #define M_CL1B_LE32     11
 #define M_LZMA          14
 
+// Remember that register t0 is the same as register x5, which has &getbit.
+// Also: 4 arguments in a0-a3 (x10-x13: rbit, bits, ta, disp)
   section NRV2E
-    li t0,M_NRV2E_LE32; bne meth,t0,not_nrv2e
+    li pre8,M_NRV2E_LE32; bne meth,pre8,not_nrv2e
     mv dst,arg3
     mv src,arg1
 //NYI #include "arch/arm64/v8/nrv2e_d.S"
 not_nrv2e:
 
   section NRV2D
-    li t0,M_NRV2D_LE32; bne meth,t0,not_nrv2d
+    li pre8,M_NRV2D_LE32; bne meth,pre8,not_nrv2d
     mv dst,arg3
     mv src,arg1
 //NYI #include "arch/arm64/v8/nrv2d_d.S"
 not_nrv2d:
 
   section NRV2B
-    li t0,M_NRV2B_LE32; bne meth,t0,not_nrv2b
+    li pre8,M_NRV2B_LE32; bne meth,pre8,not_nrv2b
     mv dst,arg3
     mv src,arg1
 #include "arch/riscv/64/nrv2b_d.S"
 not_nrv2b:
 
   section LZMA_DAISY
-    li t0,M_LZMA; bne meth,t0,not_lzma
+    li pre8,M_LZMA; bne meth,pre8,not_lzma
 //NYI #include "arch/arm64/v8/lzma_d.S"
 not_lzma:
 
@@ -121,6 +140,8 @@ not_lzma:
 eof_lzma: .globl eof_lzma
     ebreak  // eof_lzma
         POP4 x2,x3, fp,ra   // MATCH_94  x2= orig_dst; x3= plen_dst
+        POP2 s0,s1
+        addi sp,sp,2*NBPW  // MATCH_92
         ret
 
 eof_n2b:
@@ -132,11 +153,13 @@ eof_n2e:
 #undef fx_dst
     sd  s1,0(fx_dstlen)  # register s1 needed by unfiler and icache sync
 #undef fx_dstlen
-    sub src,src,fx_src  # check input consumed
+    lwu ta,sz_cpr(fx_src)  # expected consumption of src
+    sub src,src,fx_src
+    addi src,src,-sz_binfo  # actual consumption of src
+    sub src,src,ta  # actual - expected
 
-    ld  val,0(fx_src)  # &b_info
+    lbu arg3,b_ftid(fx_src)  # filter
 #undef fx_src
-    lbu arg3,b_method(val)  # filter
     beqz arg3,no_unf
       mv arg1,s0
       mv arg2,s1  // actual dstlen
@@ -148,26 +171,16 @@ no_unf:
 //  fence.i  # not supported by Linux?
 uncfail:
     POP2 s0,s1  # MATCH_93  ABI
+    addi sp,sp,2*NBPW  // MATCH_92
     mv rv,src  # return value
     ret
-
-// WINDOWS_BACK compatibility seems to be broken
-// if POP3 replaces POP2+POP1 (MATCH_92, MATCH_91)
-#if 0  //{ Windows?
-//#define srclim  a7
-//        POP2 a3,a4   // MATCH_92  r3= orig_dst; r4= plen_dst
-//        SUB2 src,srclim   // 0 if actual src length equals expected length
-//        SUB2 dst,a3   // actual dst length
-//        sw dst,(a4)
-//        POP1 ra  // MATCH_91
-//        ret
-#endif  //}
 
 upx_mmap_and_fd: .globl upx_mmap_and_fd
     // UMF_LINUX goes here
 
-#if 0  // {BUGGY
-//copy:  // In: len, dst, dispq;  Out: 0==len, dst, dispq;  trashes %rax, %rdx
+#if 0  // {BUGGY, and clobbers t0 === x5
+// Instead: use pre8, rbit, ta (x9, x10, x12)  [len is val(x8)]
+//copy:  // In: len, dst, disp;  Out:  dst;  trashes len, pre8
 //        add rax,dst,disp; li t0,5; sgtu t0,t0,len  // <=3 is forced
 //        lbu rdx,0(rax); bnez t0,copy1  // <=5 for better branch predict
 //        li t0,-4; sgtu t0,disp,t0; bnez t0,copy1  // 4-byte chunks would overlap

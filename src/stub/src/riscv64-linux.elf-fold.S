@@ -112,7 +112,6 @@ cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 // no 'section', thus '.text'; also loaded first in riscv64-linux.elf-fold.bin.
 // Code from riscv64-linux2.elf-main.c is also .text, and is next.
 fold_begin:
-    ebreak  # DEBUG
         mv rbp,sp
         j 6f
 
@@ -132,11 +131,14 @@ L_mmap:
         li a7,__NR_mmap
 3:
 Palign:
-        mv x5,ra; call L_get_page_mask; mv ra,x5  // rv= PAGE_MASK
-        xori ta,rv,~0  // frag mask
-        and arg1,arg1,ta  // frag
-        sub arg1,arg1,ta
-        add arg2,arg2,ta
+	mv t1,arg1  # arg1 clobbered by rv
+        mv t0,ra
+	    call L_get_page_mask; xori t2,rv,~0  // frag mask
+	mv ra,t0
+	mv arg1,t1
+        and t2,t2,arg1  // frag
+        sub arg1,arg1,t2
+        add arg2,arg2,t2
         j sysgo
 
 6: // (fold begin) F_ADRX(rbp) has is_ptinerp | unmap_all_pages
@@ -235,7 +237,7 @@ no_PSE:
 // sp/ {OVERHEAD},ADRU,LENU,rdx,%entry,  argc,argv,0,envp,0,auxv,0,strings
         li ta,OVERHEAD
         add sp,sp,ta  # remove Elf64_Ehdr temporary space
-        sd rv,3*NBPW(sp)  # entry
+        sd rv,F_ENTR(sp)  # entry
 
         //NYI call *cancel_sigsegv(%rip)
 
@@ -245,10 +247,10 @@ ET_EXEC= 2
 sz_Phdr= 7*NBPW
 p_memsz= 5*NBPW
 // Discard pages of compressed data (includes [ADRX,+LENX) )
-        addi arg2,s1,p_memsz+sz_Phdr+sz_Ehdr  #   Phdr[C_TEXT= 1].p_memsz
         //cmpw $ET_EXEC, e_type(%r13); jne 0f
         mv arg1,s1; call brk  // also sets the brk
 0:
+        ld arg2,p_memsz+sz_Phdr+sz_Ehdr(s1)  #   Phdr[C_TEXT= 1].p_memsz
         mv arg1,s1; call L_munmap  # discard C_TEXT compressed data
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
@@ -265,9 +267,11 @@ p_memsz= 5*NBPW
         call L_close
 
 no_pse_map:
+    ebreak
         ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
         ld arg2,F_LENU(rbp)
         li a7,__NR_munmap
+    ebreak
         jr x5  # goto: syscall; pop %rdx; ret
 
         section SYSCALLS

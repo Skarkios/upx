@@ -85,11 +85,11 @@ M_NRV2E_LE32=8
 
 // same as in riscv64-linux.elf-fold.S
 F_FRAME= 8*NBPW
-F_EOF=  7*NBPW
-F_ENTR= 6*NBPW; F_PMASK= F_ENTR
+F_EOFDST=7*NBPW
+F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC
 F_RDX=  5*NBPW
 F_LENU= 4*NBPW
-F_ADRU= 3*NBPW
+F_ADRU= 3*NBPW; F_PMASK= F_ADRU
 F_ELFA= 2*NBPW
 F_LENX= 1*NBPW  # 4 bytes only
 F_MFD=  1*NBPW + 4
@@ -108,7 +108,6 @@ _start: .globl _start
 
 ////    nop; int3  # uncomment for debugging
         lwu tb,0(ta)  // sz_pack2
-        sd tb,F_EOF(sp)
         sub elfa,ta,tb
 
         ld s0,0(sp)  // argc
@@ -181,14 +180,18 @@ O_TMPFILE= 020000000  // 0x400000
 
 #include "riscv64-getbit.h"
         mv dst,sp
-        lwu rv,4+sz_cpr(binf)
         lbu ta,4+b_method(binf)
 	li  tb,M_NRV2B_LE32|(0<<8)
         beq ta,tb,0f; ebreak; 0:  # elf_entry wrong method
-	lwu ta,4+sz_unc(binf)
-        addi src,binf,4 + sz_b_info  # last use of register binf
+        addi src,binf,4 + sz_b_info
+	lwu rv,4+sz_unc(binf)
+	add rv,rv,dst
+	sd rv,F_EOFDST(old_sp)
+        lwu rv,4+sz_cpr(binf)
         add rv,rv,src
-        sd  rv,F_EOF(old_sp)
+        sd  rv,F_EOFSRC(old_sp)
+		// value in register binf is dead
+
 //s9  === old_sp:  array of F_FRAME
 
 	jal x5,xin_n2b
@@ -201,8 +204,10 @@ xin_n2b:
 n2b_EOFbad:
         ebreak  # elf-entry n2b_EOFbad
 eof_n2b:
-        ld  ta,F_EOF(old_sp)
+        ld  ta,F_EOFSRC(old_sp)
         bne ta,src,n2b_EOFbad
+	ld  ta,F_EOFDST(old_sp)
+	bne ta,dst,n2b_EOFbad
 
 // propagate F_PMASK(old_sp) into c.lui at D_PMASK(sp)
         lhu ta,F_PMASK(old_sp)

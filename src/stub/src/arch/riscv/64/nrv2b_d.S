@@ -36,7 +36,7 @@ xin_n2b: .globl xin_n2b
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
 
-#define DEBUG_NRV 1
+#define DEBUG_NRV 0
 #if DEBUG_NRV  //{
 #define dst0 x31
         mv dst0,dst
