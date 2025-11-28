@@ -72,9 +72,9 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 // Input to de-compressor:
 #define meth arg5
 #define tmp  arg6
-	lwu tmp,sz_unc(fx_src)
-	add tmp,tmp,fx_dst
-	sd  tmp,F_EOFDST(sp)
+        lwu tmp,sz_unc(fx_src)
+        add tmp,tmp,fx_dst
+        sd  tmp,F_EOFDST(sp)
     lbu meth,b_method(fx_src)
     mv arg4,fx_dstlen
     mv arg3,fx_dst

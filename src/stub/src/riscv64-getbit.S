@@ -17,7 +17,7 @@ refill:
                             slli pre8,pre8,3*8
                             or   bits,bits,pre8
 #endif  //}
-	addi src,src,4  
+        addi src,src,4
 
         srliw rbit,bits,31  # hi bit of 4 bytes fetched
         slli bits,bits,1; lbu pre8,(src)  # prefetch

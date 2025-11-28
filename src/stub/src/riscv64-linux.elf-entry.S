@@ -181,20 +181,20 @@ O_TMPFILE= 020000000  // 0x400000
 #include "riscv64-getbit.h"
         mv dst,sp
         lbu ta,4+b_method(binf)
-	li  tb,M_NRV2B_LE32|(0<<8)
+        li  tb,M_NRV2B_LE32|(0<<8)
         beq ta,tb,0f; ebreak; 0:  # elf_entry wrong method
         addi src,binf,4 + sz_b_info
-	lwu rv,4+sz_unc(binf)
-	add rv,rv,dst
-	sd rv,F_EOFDST(old_sp)
+        lwu rv,4+sz_unc(binf)
+        add rv,rv,dst
+        sd rv,F_EOFDST(old_sp)
         lwu rv,4+sz_cpr(binf)
         add rv,rv,src
         sd  rv,F_EOFSRC(old_sp)
-		// value in register binf is dead
+                // value in register binf is dead
 
 //s9  === old_sp:  array of F_FRAME
 
-	jal x5,xin_n2b
+        jal x5,xin_n2b
 
 #include "riscv64-getbit.S"
 #define NO_METHOD_CHECK 1
@@ -206,8 +206,8 @@ n2b_EOFbad:
 eof_n2b:
         ld  ta,F_EOFSRC(old_sp)
         bne ta,src,n2b_EOFbad
-	ld  ta,F_EOFDST(old_sp)
-	bne ta,dst,n2b_EOFbad
+        ld  ta,F_EOFDST(old_sp)
+        bne ta,dst,n2b_EOFbad
 
 // propagate F_PMASK(old_sp) into c.lui at D_PMASK(sp)
         lhu ta,F_PMASK(old_sp)

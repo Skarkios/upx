@@ -131,11 +131,11 @@ L_mmap:
         li a7,__NR_mmap
 3:
 Palign:
-	mv t1,arg1  # arg1 clobbered by rv
+        mv t1,arg1  # arg1 clobbered by rv
         mv t0,ra
-	    call L_get_page_mask; xori t2,rv,~0  // frag mask
-	mv ra,t0
-	mv arg1,t1
+            call L_get_page_mask; xori t2,rv,~0  // frag mask
+        mv ra,t0
+        mv arg1,t1
         and t2,t2,arg1  // frag
         sub arg1,arg1,t2
         add arg2,arg2,t2
@@ -168,7 +168,7 @@ proc_self_exe:
         li rv,15  # sizeof "/proc/self/exe"
 0:
 
-// 
+//
         sub rdi,rbp,rv
         addi rdi,rdi,-(NBPW + 4 + 1)  # new env_var, strlen("   ="), terminator
         andi rdi,rdi,-2*NBPW  # 16-byte align
@@ -271,28 +271,28 @@ no_pse_map:
         ld arg2,F_LENU(rbp)
         li a7,__NR_munmap
 
-	ld x15,F_ENTR(rbp)
-	addi sp,sp,F_FRAME
-	mv x14,sp
+        ld x15,F_ENTR(rbp)
+        addi sp,sp,F_FRAME
+        mv x14,sp
 // skip argc,argv
-	ld x13,(x14)  # argc
-	addi x13,x13,2  # argc,argv,0
-	sll x13,x13,3  # *NBPW
-	add x14,x14,x13
+        ld x13,(x14)  # argc
+        addi x13,x13,2  # argc,argv,0
+        sll x13,x13,3  # *NBPW
+        add x14,x14,x13
 // skip env
 0:
-	ld x13,(x14); addi x14,x14,NBPW; bnez x13,0b
+        ld x13,(x14); addi x14,x14,NBPW; bnez x13,0b
 // skip auxv
 0:
-	ld x13,(x14); addi x14,x14,2*NBPW; bnez x13,0b
+        ld x13,(x14); addi x14,x14,2*NBPW; bnez x13,0b
 
-	ld  x14,-NBPW(x14)  # &hatch
+        ld  x14,-NBPW(x14)  # &hatch
 // Why is this store prohibited by no PF_W access?
-//	sd zero,-NBPW(x14)  # clean the hatch
+//        sd zero,-NBPW(x14)  # clean the hatch
 // Also, ld.so complains rtld.c: 1683: dl_main: GL(dl_rtld_map).l_libname->next != NULL
-	jalr x14  # escape to:
-	// ecall  # munmap
-	// jalr x15  $ goto entry
+        jalr x14  # escape to:
+        // ecall  # munmap
+        // jalr x15  $ goto entry
 
         section SYSCALLS
 my_bkpt: .globl my_bkpt
@@ -339,7 +339,7 @@ sys_check:
         ret
 0:
         ebreak; j 0b  # sys_check error
-        
+
 
 Psync: .globl Psync
         li a7,__NR_msync

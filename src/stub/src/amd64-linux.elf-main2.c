@@ -305,9 +305,9 @@ make_hatch(
     unsigned long a = (unsigned long)next_unc;
     short *hatch = (short *)((1u & a) + a);
     short code[3] =  {
-	  0x0073  // ecall for munmap(ADRU, LENU)
-	, 0x0000  // upper 16 bits of ecall
-	, 0x9002 | (15<<7)  // jalr x15
+          0x0073  // ecall for munmap(ADRU, LENU)
+        , 0x0000  // upper 16 bits of ecall
+        , 0x9002 | (15<<7)  // jalr x15
     };
     DPRINTF("make_hatch %%p %%p %%x\\n", phdr, next_unc, frag_mask);
     if (phdr->p_type==PT_LOAD && phdr->p_flags & PF_X) {

@@ -81,7 +81,7 @@ offmore_n2b:
         beqz disp,l_EOF
 len_n2b:
 #define off ta
-	li off,1
+        li off,1
 #define len val
         li len,0; getnextb(len); getnextb(len)  # two bits
         bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4 [add 1==off to len from 2 bits]
@@ -95,7 +95,7 @@ gotlen_n2b:
         add len,len,off
         li ta,-0xd00
         sltu ta,disp,ta
-	add len,len,ta  # len += (disp < -0xd00)
+        add len,len,ta  # len += (disp < -0xd00)
 #undef off
 
 #if DEBUG_NRV  //{
