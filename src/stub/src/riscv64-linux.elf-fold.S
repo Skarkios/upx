@@ -267,12 +267,32 @@ p_memsz= 5*NBPW
         call L_close
 
 no_pse_map:
-    ebreak
         ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
         ld arg2,F_LENU(rbp)
         li a7,__NR_munmap
-    ebreak
-        jr x5  # goto: syscall; pop %rdx; ret
+
+	ld x15,F_ENTR(rbp)
+	addi sp,sp,F_FRAME
+	mv x14,sp
+// skip argc,argv
+	ld x13,(x14)  # argc
+	addi x13,x13,2  # argc,argv,0
+	sll x13,x13,3  # *NBPW
+	add x14,x14,x13
+// skip env
+0:
+	ld x13,(x14); addi x14,x14,NBPW; bnez x13,0b
+// skip auxv
+0:
+	ld x13,(x14); addi x14,x14,2*NBPW; bnez x13,0b
+
+	ld  x14,-NBPW(x14)  # &hatch
+// Why is this store prohibited by no PF_W access?
+//	sd zero,-NBPW(x14)  # clean the hatch
+// Also, ld.so complains rtld.c: 1683: dl_main: GL(dl_rtld_map).l_libname->next != NULL
+	jalr x14  # escape to:
+	// ecall  # munmap
+	// jalr x15  $ goto entry
 
         section SYSCALLS
 my_bkpt: .globl my_bkpt
