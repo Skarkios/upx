@@ -81,6 +81,7 @@ public:
         assertInvariants();
     }
 
+    // inline CSelf() : ptr(nullptr) { invalidate(); }
     inline CSelf() { assertInvariants(); }
 
     // constructors from pointers

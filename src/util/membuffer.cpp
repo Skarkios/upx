@@ -33,7 +33,7 @@
 
 // extra functions to reduce dependency on membuffer.h
 void *membuffer_get_void_ptr(MemBuffer &mb) noexcept { return mb.getVoidPtr(); }
-unsigned membuffer_get_size(MemBuffer &mb) noexcept { return mb.getSize(); }
+unsigned membuffer_get_size_in_bytes(MemBuffer &mb) noexcept { return mb.getSizeInBytes(); }
 
 /*static*/ MemBuffer::Stats MemBuffer::stats;
 
@@ -61,7 +61,7 @@ static noinline void init_use_simple_mcheck() noexcept {
     }
     use_simple_mcheck_flag = r;
 }
-static bool use_simple_mcheck() noexcept {
+static noinline bool use_simple_mcheck() noexcept {
     static upx_std_once_flag init_done;
     upx_std_call_once(init_done, init_use_simple_mcheck);
     // NOTE: clang-analyzer-unix.Malloc does not know that this flag is "constant"; see below
@@ -82,23 +82,6 @@ MemBuffer::MemBuffer(upx_uint64_t bytes) may_throw : MemBufferBase<byte>() {
 }
 
 MemBuffer::~MemBuffer() noexcept { this->dealloc(); }
-
-// similar to BoundedPtr, except checks only at creation
-// skip == offset, take == size_in_bytes
-void *MemBuffer::subref_impl(const char *errfmt, size_t skip, size_t take) {
-    debug_set(debug.last_return_address_subref, upx_return_address());
-    checkState();
-    // check overrun and wrap-around
-    if (skip + take > size_in_bytes || skip + take < skip) {
-        char buf[100];
-        // printf is using unsigned formatting
-        if (!errfmt || !errfmt[0])
-            errfmt = "bad subref %#x %#x";
-        upx_safe_snprintf(buf, sizeof(buf), errfmt, (unsigned) skip, (unsigned) take);
-        throwCantPack(buf);
-    }
-    return ptr + skip;
-}
 
 /*static*/
 unsigned MemBuffer::getSizeForCompression(unsigned uncompressed_size, unsigned extra) {
@@ -138,10 +121,28 @@ void MemBuffer::allocForDecompression(unsigned uncompressed_size, unsigned extra
 void MemBuffer::fill(size_t off, size_t bytes, int value) {
     debug_set(debug.last_return_address_fill, upx_return_address());
     checkState();
-    if (off > size_in_bytes || bytes > size_in_bytes || off + bytes > size_in_bytes)
+    // check overrun and wrap-around
+    if very_unlikely (off + bytes > size_in_bytes || off + bytes < off)
         throwCantPack("MemBuffer::fill out of range; take care!");
     if (bytes > 0)
         memset(ptr + off, value, bytes);
+}
+
+// similar to BoundedPtr, except checks only at creation
+// skip == offset, take == size_in_bytes
+void *MemBuffer::subref_impl(const char *errfmt, size_t skip, size_t take) {
+    debug_set(debug.last_return_address_subref, upx_return_address());
+    checkState();
+    // check overrun and wrap-around
+    if very_unlikely (skip + take > size_in_bytes || skip + take < skip) {
+        char buf[100];
+        // printf is using unsigned formatting
+        if (!errfmt || !errfmt[0])
+            errfmt = "bad subref %#x %#x";
+        upx_safe_snprintf(buf, sizeof(buf), errfmt, (unsigned) skip, (unsigned) take);
+        throwCantPack(buf);
+    }
+    return ptr + skip;
 }
 
 /*************************************************************************
@@ -154,16 +155,16 @@ void MemBuffer::fill(size_t off, size_t bytes, int value) {
 #define MAGIC2(p)     ((PTR_BITS32(p) ^ 0xfefdbeeb ^ 0x88224411) | 1)
 
 void MemBuffer::checkState() const may_throw {
-    if (!ptr)
+    if very_unlikely (ptr == nullptr)
         throwInternalError("block not allocated");
     assert(size_in_bytes > 0);
     if (use_simple_mcheck()) {
         const byte *p = (const byte *) ptr;
-        if (get_ne32(p - 4) != MAGIC1(p))
+        if very_unlikely (get_ne32(p - 4) != MAGIC1(p))
             throwInternalError("memory clobbered before allocated block 1");
-        if (get_ne32(p - 8) != size_in_bytes)
+        if very_unlikely (get_ne32(p - 8) != size_in_bytes)
             throwInternalError("memory clobbered before allocated block 2");
-        if (get_ne32(p + size_in_bytes) != MAGIC2(p))
+        if very_unlikely (get_ne32(p + size_in_bytes) != MAGIC2(p))
             throwInternalError("memory clobbered past end of allocated block");
     }
 }
@@ -207,43 +208,43 @@ void MemBuffer::alloc(upx_uint64_t bytes) may_throw {
 }
 
 void MemBuffer::dealloc() noexcept {
-    if (ptr != nullptr) {
-        debug_set(debug.last_return_address_dealloc, upx_return_address());
-#if DEBUG || 1
-        // info: calling checkState() here violates "noexcept", so we need a try block
-        bool shall_check = true;
-        // bool shall_check = (std::uncaught_exceptions() == 0); // only if not unwinding
-        // TODO later: add a priority() method to class Throwable
-        if (shall_check) {
-            try {
-                checkState();
-            } catch (const Throwable &e) {
-                printErr("unknown", e);
-                std::terminate();
-            } catch (...) {
-                std::terminate();
-            }
-        }
-#endif
-        stats.global_dealloc_counter += 1;
-        stats.global_total_active_bytes -= size_in_bytes;
-        if (use_simple_mcheck()) {
-            byte *p = (byte *) ptr;
-            // clear magic constants
-            set_ne32(p - 8, 0);
-            set_ne32(p - 4, 0);
-            set_ne32(p + size_in_bytes, 0);
-            set_ne32(p + size_in_bytes + 4, 0);
-            //
-            ::free(p - 16); // NOLINT(clang-analyzer-unix.Malloc) // see NOTE above
-        } else {
-            ::free(ptr); // NOLINT(clang-analyzer-unix.Malloc) // see NOTE above
-        }
-        ptr = nullptr;
-        size_in_bytes = 0;
-    } else {
+    if (ptr == nullptr) {
         assert_noexcept(size_in_bytes == 0);
+        return;
     }
+    debug_set(debug.last_return_address_dealloc, upx_return_address());
+#if DEBUG || 1
+    // info: calling checkState() here violates "noexcept", so we need a try block
+    bool shall_check = true;
+    // bool shall_check = (std::uncaught_exceptions() == 0); // only if not unwinding
+    // TODO later: add a priority() method to class Throwable
+    if (shall_check) {
+        try {
+            checkState();
+        } catch (const Throwable &e) {
+            printErr("unknown", e);
+            std::terminate();
+        } catch (...) {
+            std::terminate();
+        }
+    }
+#endif
+    stats.global_dealloc_counter += 1;
+    stats.global_total_active_bytes -= size_in_bytes;
+    if (use_simple_mcheck()) {
+        byte *p = (byte *) ptr;
+        // clear magic constants
+        set_ne32(p - 8, 0);
+        set_ne32(p - 4, 0);
+        set_ne32(p + size_in_bytes, 0);
+        set_ne32(p + size_in_bytes + 4, 0);
+        //
+        ::free(p - 16); // NOLINT(clang-analyzer-unix.Malloc) // see NOTE above
+    } else {
+        ::free(ptr); // NOLINT(clang-analyzer-unix.Malloc) // see NOTE above
+    }
+    ptr = nullptr;
+    size_in_bytes = 0;
 }
 
 /*************************************************************************
@@ -319,7 +320,6 @@ TEST_CASE("MemBuffer global overloads") {
         CHECK(mb1[0] == 255);
     }
 
-#if DEBUG || 0
     for (size_t i = 1; i <= 16; i++) {
         MemBuffer mb(i);
         mb.clear();
@@ -383,7 +383,7 @@ TEST_CASE("MemBuffer global overloads") {
             CHECK_NOTHROW(set_be64(mb, 0));
             CHECK_NOTHROW(set_le64(mb, 0));
         }
-        //
+
         CHECK_NOTHROW(mb.subref("", 0, 0));
         CHECK_NOTHROW(mb.subref("", 0, i));
         CHECK_NOTHROW(mb.subref("", i, 0));
@@ -393,7 +393,9 @@ TEST_CASE("MemBuffer global overloads") {
         CHECK_THROWS(mb.subref("", i, 1));
         CHECK_THROWS(mb.subref("", (size_t) -1, 0));
         CHECK_THROWS(mb.subref("", (size_t) -1, i));
-        //
+
+#if DEBUG || !(ACC_CC_CLANG && __PPC64__ && ACC_ABI_BIG_ENDIAN) || 0
+        // @COMPILER_BUG @CLANG_BUG
         if (i < 2) {
             CHECK_THROWS(mb.subref("", 0, sizeof(NE16)));
             CHECK_THROWS(mb.subref("", 0, sizeof(BE16)));
@@ -421,12 +423,12 @@ TEST_CASE("MemBuffer global overloads") {
             CHECK_NOTHROW(mb.subref("", 0, sizeof(BE64)));
             CHECK_NOTHROW(mb.subref("", 0, sizeof(LE64)));
         }
-        //
+
         CHECK_NOTHROW(mb.subref_u<byte *>("", 0));
         CHECK_NOTHROW(mb.subref_u<byte *>("", i - 1));
         CHECK_THROWS(mb.subref_u<byte *>("", i));
         CHECK_THROWS(mb.subref_u<byte *>("", (size_t) -1));
-        //
+
         if (i < 2) {
             CHECK_THROWS(mb.subref_u<NE16 *>("", 0));
             CHECK_THROWS(mb.subref_u<BE16 *>("", 0));
@@ -454,8 +456,8 @@ TEST_CASE("MemBuffer global overloads") {
             CHECK_NOTHROW(mb.subref_u<BE64 *>("", 0));
             CHECK_NOTHROW(mb.subref_u<LE64 *>("", 0));
         }
-    }
 #endif
+    }
 }
 
 TEST_CASE("MemBuffer array access") {

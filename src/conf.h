@@ -100,6 +100,7 @@ static_assert((char) (-1) == 255);             // -funsigned-char
 #endif // UPX_CONFIG_DISABLE_WERROR
 #endif // UPX_CONFIG_DISABLE_WSTRICT
 
+// upx_is_constant_evaluated
 #if __cplusplus >= 202002L // C++20
 #define upx_is_constant_evaluated std::is_constant_evaluated
 #elif __has_builtin(__builtin_is_constant_evaluated) // clang-9, gcc-10
@@ -803,7 +804,7 @@ int upx_doctest_check();
 // util/membuffer.h
 class MemBuffer;
 void *membuffer_get_void_ptr(MemBuffer &mb) noexcept;
-unsigned membuffer_get_size(MemBuffer &mb) noexcept;
+unsigned membuffer_get_size_in_bytes(MemBuffer &mb) noexcept;
 
 // main.cpp
 extern const char *progname;

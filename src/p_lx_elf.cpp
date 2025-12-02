@@ -6355,6 +6355,7 @@ unsigned PackLinuxElf32::forward_Shdrs(OutputFile *fo, Elf32_Ehdr *const eho)
                 }
             }
         }
+        UNUSED(ptr);
 
         fo->seek(0, SEEK_SET);
         fo->rewrite(eho, sizeof(*eho));

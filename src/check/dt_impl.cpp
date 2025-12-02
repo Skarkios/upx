@@ -68,7 +68,9 @@
 #endif
 #endif
 
+// NOLINTBEGIN(bugprone-unintended-char-ostream-output)
 #include <doctest/doctest/parts/doctest.cpp>
+// NOLINTEND(bugprone-unintended-char-ostream-output)
 
 #endif // DOCTEST_CONFIG_DISABLE
 
