@@ -31,29 +31,27 @@
 
 xin_n2b: .globl xin_n2b
 #ifndef NO_METHOD_CHECK
-        cmpb $ M_NRV2B_LE32,methb; jne not_n2b
+        addi pre8,meth,-M_NRV2B_LE32; bnez pre8,not_n2b
 #endif
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
 
+#undef  DEBUG_NRV
 #define DEBUG_NRV 0
 #if DEBUG_NRV  //{
-#define dst0 x31
-        mv dst0,dst
-#define src0 x30
-        mv src0,src
+#define dst0  x31
+#define src0  x30
 #define prov0 x29
+#define prov  x28
+        mv dst0,dst
+        mv src0,src
         lui prov0,0x100000>>12
         sub sp,sp,prov0
         mv prov0,sp
-#define prov x28
         mv prov,sp
-#endif  // DEBUG_NRV}
+#endif  // DEBUG_NRV }
 
         j top_n2b
-
-#undef EOF
-#define EOF eof_n2b
 
 lit_n2b:
         addi src,src,1; sb pre8,(dst)
@@ -78,14 +76,14 @@ offmore_n2b:
         addw  off,off,pre8; lbu pre8,0(src)  # prefecth
         xori disp,off,~0  # no xoriw, so need previous addw
 #undef off
-        beqz disp,l_EOF
+        beqz disp,l_n2b_EOF
 len_n2b:
 #define off ta
-        li off,1
+        li off,1  # [add 1==off to len from ss11]
 #define len val
         li len,0; getnextb(len); getnextb(len)  # two bits
         bnez len,gotlen_n2b  # raw 1,2,3 ==> 2,3,4 [add 1==off to len from 2 bits]
-        li off,3  # raw 2.. ==> 5..  [add 3==off to len from ss11]]
+        li off,3  # raw 2.. ==> 5..  [add 3==off to len from ss11]
 
         li len,1  # the msb
 lenmore_n2b:
@@ -103,30 +101,21 @@ gotlen_n2b:
     sw  x27,  2*4(prov)
     sb len,3+ 2*4(prov)
     sw disp,  3*4(prov)
-
-    lwu x27,0(prov)  # delta(src)
-    li x26,0x10000
-    sltu x26,x26,x27
-    beqz x26,0f
-0:
     addi prov,prov,4*4
 #endif  // DEBUG_NRV }
 #undef len
+
         jalr 0x32(x5)  # call copy
         j top_n2b
 
-l_EOF:
+l_n2b_EOF:
 #if DEBUG_NRV  //{
         lui ta,0x100000>>12
         add sp,sp,ta
 #endif  // DEBUG_NRV }
         j eof_n2b
 
-#ifndef NO_METHOD_CHECK  //{
 not_n2b:
-        push %rdi; pop %rsi  # src = arg1
-#endif  //}
-
         # fall into daisy chain
 /*
 vi:ts=8:et:nowrap

@@ -1268,7 +1268,7 @@ int const *
 PackLinuxElf64riscv64::getFilters() const
 {
     static const int filters[] = {
-        0x52,
+            // NYI
     FT_END };
     return filters;
 }
@@ -1883,9 +1883,11 @@ PackLinuxElf64::buildLinuxLoader(
         if (r != UPX_E_OK || h.sz_cpr >= h.sz_unc)
             throwInternalError("loader compression failed");
         MemBuffer mb_uncLoader(10 + sz_unc);
-        unsigned unc_len;
+        unsigned unc_len = sz_unc;
         r = upx_decompress(sizeof(h) + cprLoader, sz_cpr,
-            mb_uncLoader, &unc_len, method, nullptr);
+            (unsigned char *)mb_uncLoader, &unc_len, method, nullptr);
+        if (r != UPX_E_OK)
+            throwInternalError("header compression failed");
     }
     set_te32(&h.sz_cpr, h.sz_cpr);
     set_te32(&h.sz_unc, h.sz_unc);

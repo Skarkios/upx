@@ -1,4 +1,4 @@
-/* nrv2d_d.S -- AMD64 decompressor for NRV2D
+/* nrv2d_d.S -- RiscV64 decompressor for NRV2D
 
    This file is part of the UPX executable compressor.
 
@@ -30,52 +30,59 @@
 */
 
 #ifndef NO_METHOD_CHECK
-        cmpb $ M_NRV2D_LE32,methb; jne not_n2d
+        addi pre8,meth,-M_NRV2D_LE32; bnez pre8,not_n2d
 #endif
-        jmp top_n2d
+        lui bits,0x80000  // (1<<31): empty; force refill
+        li disp,-1  // initial displacement
 
-#undef EOF
-#ifdef WINDOWS_BACK
-  #define EOF eofd
-#else
-  #define EOF eof_n2d
-#endif
+#undef  DEBUG_NRV
+#define DEBUG_NRV 0
+#if DEBUG_NRV  //{
+#define dst0  x31
+#define src0  x30
+#define prov0 x29
+#define prov  x28
+        mv dst0,dst
+        mv src0,src
+        lui prov0,0x100000>>12
+        sub sp,sp,prov0
+        mv prov0,sp
+        mv prov,sp
+#endif  // DEBUG_NRV }
 
+        j top_n2d
 lit_n2d:
-        incq %rsi; movb %dl,(%rdi)
-        incq %rdi
+        addi src,src,1; sb pre8,(dst)
+        addi dst,dst,1
 top_n2d:
-#ifdef WINDOWS_BACK
-        movb (%rsi),%dl  // speculate: literal, or bottom 8 bits of offset
-#else
-        movzbl (%rsi),%edx  // speculate: literal, or bottom 8 bits of offset
-#endif
+        lbu pre8,(src)  # prefetch: literal, or bottom 8 bits of offset
         jnextb1yp lit_n2d
-        lea 1(lenq),off  // [len= 0] off= 1
-        jmp getoff_n2d
+#define off val
+#if DEBUG_NRV  //{
+    sub off,src,src0
+    sw off,0(prov)
+    sw bits,4(prov)
+#endif  // DEBUG_NRV }
+        li off,1; j getoff_n2d  # the msb
 
 off_n2d:
-        dec off
-        getnextbp(off)
+        addi off,off,-1
+        getnextbp(foo)
 getoff_n2d:
         getnextbp(off)
-        jnextb0np off_n2d
+        jnextb0 off_n2d
 
-        subl $ 3,off; jc offprev_n2d
-#ifdef WINDOWS_BACK
-        shll $ 8,off; movzbl %dl,%edx
-        orl %edx,off; incq %rsi
-        xorl $~0,off; jz eof
-#else
-        shll $ 8,off; incq %rsi
-        orl %edx,off
-        xorl $~0,off; jz EOF
-#endif
-        sarl     off  // Carry= original low bit
-        movslq   off,dispq  // XXX: 2GB
-        jmp len_n2d-2  // CHEAT: assume tail of getnextb is "adcl len,len"
+        addiw off,off,-3; bltz off,len_n2d  # use previous offset
+        slli  off,off,8; addi src,src,1  # account for previous fetch
+// XXX 2GB; addw needs sign extend (32-->64) at EOF
+        addw  off,off,pre8; lbu pre8,0(src)  # prefecth
+        xori disp,off,~0  # no xoriw, so need previous addw
+#undef off
+        beqz disp,l_n2d_EOF
+
 offprev_n2d:
-        getnextb(len)
+        getnextb(len); j pointC
+
 len_n2d:
         getnextb(len); jne gotlen_n2d
         inc len  // len= 1

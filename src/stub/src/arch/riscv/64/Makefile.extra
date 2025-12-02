@@ -52,4 +52,4 @@ lzma_d_c%.S : lzma_d_c.c
 
 lzma_d_cf.% : PP_FLAGS = -DFAST
 lzma_d_cs.% : PP_FLAGS = -DSMALL
-lzma_d_cn.% : PP_FLAGS = -DFAST -mno-red-zone
+lzma_d_cn.% : PP_FLAGS = -DFAST

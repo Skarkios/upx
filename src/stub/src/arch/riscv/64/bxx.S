@@ -1,4 +1,4 @@
-/* amd_bxx.S -- AMD x86_64 Call/Branch Trick unfilter
+/* amd_bxx.S -- Riscv64 AUIPC Trick unfilter
 
    This file is part of the UPX executable compressor.
 

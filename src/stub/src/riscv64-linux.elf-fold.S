@@ -225,6 +225,7 @@ no_PSE:
         addi sp,sp,-OVERHEAD
         mv arg3,sp  # &ELf64_Ehdr temporary space
         call upx_main2  # Out: rv= entry
+    ebreak
 
 // entry= upx_main2(
 // b_info *arg1,

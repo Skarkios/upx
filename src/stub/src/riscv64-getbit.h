@@ -16,7 +16,7 @@
 #define jnextb1np jnextb1yp
 #define jnextb1yp GETBITp; bnez rbit,
 #define GETBITp \
-        jalr 0(x5)
+        jalr x5
 
 /* Same, but without prefetch (not useful for length of match.) */
 #define jnextb0n jnextb0y
@@ -24,7 +24,7 @@
 #define jnextb1n jnextb1y
 #define jnextb1y GETBIT; bnez rbit,
 #define GETBIT \
-        jalr 0(x5)
+        jalr x5
 
 /* rotate next bit into bottom bit of reg */
 #define getnextbp(reg) GETBITp; slli reg,reg,1;  or reg,reg,rbit

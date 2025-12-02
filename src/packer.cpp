@@ -1086,6 +1086,12 @@ void Packer::compressWithFilters(byte *i_ptr,
                 throwInternalError("header compression failed");
             if (hdr_c_len >= hdr_len)
                 throwInternalError("header compression size increase");
+            MemBuffer mb_uncLoader(10 + hdr_len);
+            unsigned unc_len = hdr_len;
+            r = upx_decompress(o_tmp, hdr_c_len,
+                (unsigned char *)mb_uncLoader, &unc_len, methods[mm], nullptr);
+            if (r != UPX_E_OK)
+                throwInternalError("header compression failed");
         }
         int nfilters_success_mm = 0;
         for (int ff = 0; ff < nfilters; ff++) // for all filters

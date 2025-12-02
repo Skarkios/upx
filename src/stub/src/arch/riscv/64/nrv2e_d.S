@@ -1,4 +1,4 @@
-/* nrv2e_d.S -- AMD64 decompressor for NRV2E
+/* nrv2e_d.S -- RiscV64 decompressor for NRV2E
 
    This file is part of the UPX executable compressor.
 
@@ -30,79 +30,114 @@
 */
 
 #ifndef NO_METHOD_CHECK
-        cmpb $ M_NRV2E_LE32,methb; jne not_n2e
+        addi pre8,meth,-M_NRV2E_LE32; bnez pre8,not_n2e
 #endif
-        jmp top_n2e
+        lui bits,0x80000  // (1<<31): empty; force refill
+        li disp,-1  // initial displacement
+#undef  DEBUG_NRV
+#define DEBUG_NRV 1
+#if DEBUG_NRV  //{
+#define dst0  x31
+#define src0  x30
+#define prov0 x29
+#define prov  x28
+        mv dst0,dst
+        mv src0,src
+        lui prov0,0x100000>>12
+        sub sp,sp,prov0
+        mv prov0,sp
+        mv prov,sp
 
-#undef EOF
-#ifdef WINDOWS_BACK
-  #define EOF eofe
-#else
-  #define EOF eof_n2e
-#endif
+                        sw zero,0(prov)
+        lw pre8,0(src); sw pre8,4(prov)
+        lw pre8,4(src); sw pre8,8(prov)
+        lw pre8,8(src); sw pre8,12(prov)
+                              addi prov,prov,4*4
+#endif  // DEBUG_NRV }
+
+        j top_n2e
 
 lit_n2e:
-        incq %rsi; movb %dl,(%rdi)
-        incq %rdi
+        addi src,src,1; sb pre8,(dst)
+        addi dst,dst,1
 top_n2e:
-#ifdef WINDOWS_BACK
-        movb (%rsi),%dl  # speculate: literal, or bottom 8 bits of offset
-#else
-        movzbl (%rsi),%edx  # speculate: literal, or bottom 8 bits of offset
-#endif
+        lbu pre8,(src)  # prefetch: literal, or bottom 8 bits of offset
         jnextb1yp lit_n2e
-        lea 1(lenq),off  # [len= 0] off= 1
-        jmp getoff_n2e
+
+#define off val
+#if DEBUG_NRV  //{
+    sub off,src,src0
+    sw off, 0(prov)
+    sw bits,4(prov)
+#endif  // DEBUG_NRV }
+
+        li off,1; j getoff_n2e  # the msb
 
 off_n2e:
-        dec off
-        getnextbp(off)
+        addi off,off,-1
+        getnextb(off)
 getoff_n2e:
-        getnextbp(off)
+        getnextb(off)
         jnextb0np off_n2e
 
-        subl $ 3,off; jc offprev_n2e
-#ifdef WINDOWS_BACK
-        shll $ 8,off; movzbl %dl,%edx
-        orl %edx,off; incq %rsi
-        xorl $~0,off; jz eof
-#else
-        shll $ 8,off; incq %rsi
-        orl %edx,off
-        xorl $~0,off; jz EOF
-#endif
-        sarl off  # Carry= original low bit
-        movslq off,dispq  # XXX: 2GB
-        jc lenlast_n2e
-        jmp lenmore_n2e
-
-offprev_n2e:
-        jnextb1y lenlast_n2e
+        addiw off,off,-3; bltz off,offprev_n2e
+        slli off,off,8; addi src,src,1  # account for previous prefetch
+        addw off,off,pre8; lbu pre8,0(src)  # prefetch
+        xori disp,off,~0; beqz disp,l_n2e_EOF
+#undef  off
+#define len val
+        andi len,disp,1; srai disp,disp,1
+// point A: if (m_len)  # after the 'for (;;)' loop and the prev-vs-EOF testkkkkk
+len2or3:
+        beqz len,len4or5
+        GETBIT; addi len,rbit,2; j off_check
+// point B: else if (getbit(bb))
+len4or5:
+        jnextb0np lenmore_n2e
+        GETBIT; addi len,rbit,4; j off_check
+// point C: else
 lenmore_n2e:
-        incl len  # len= 1
-        jnextb1y lenlast_n2e
+        li len,1  # ss11 the msb
 len_n2e:
         getnextb(len)
-        jnextb0n len_n2e
-        addl $6-2-2,len
-        jmp gotlen_n2e
+        jnextb0yp len_n2e
+        addi len,len,6 - 2  # 6... but ss11 retval is 2 minimum
+        j off_check
 
-lenlast_n2e:
-        getnextb(len)  # 0,1,2,3
-gotlen_n2e:
-        cmpq $-0x500,dispq
-        adcl $2,len  # len += 2+ (disp < -0x500);
-        call copy
-bot_n2e:  # In: 0==len
-        jmp top_n2e
+offprev_n2e:
+        GETBIT; mv len,rbit; j len2or3
 
-#ifndef NO_METHOD_CHECK
+off_check:
+        li ta,-0x500
+        sltu ta,disp,ta
+        add len,len,ta
+
+#if DEBUG_NRV  //{
+    sub x27,dst,dst0
+    sw  x27,  2*4(prov)
+    sb len,3+ 2*4(prov)
+    sw disp,  3*4(prov)
+
+    sub ta,prov,prov0
+    li x26,0x100000
+    bltu x26,ta,0f; addi prov,prov,4*4; 0:
+#endif  // DEBUG_NRV }
+#undef len
+
+copy_n2e:
+        jalr 0x32(x5)  # call copy
+        j top_n2e
+
+l_n2e_EOF:
+#if DEBUG_NRV  //{
+        lui ta,0x100000>>12
+        add sp,sp,ta
+#endif  // DEBUG_NRV }
+        j eof_n2e
+
 not_n2e:
-        push %rdi; pop %rsi  # src = arg1
-#endif
         // fall into daisy chain
 
 /*
 vi:ts=8:et:nowrap
 */
-
