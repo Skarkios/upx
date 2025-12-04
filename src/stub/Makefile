@@ -2238,7 +2238,7 @@ tmp/riscv64-linux.elf-fold.o : $(srcdir)/src/$$T.S
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
-	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
+	(echo '#define call jal'; $(call tc,gcc) -S $< -o -) \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
 	$(call tc,f-objstrip,$@)

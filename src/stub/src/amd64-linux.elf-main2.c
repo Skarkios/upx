@@ -414,11 +414,13 @@ upx_bzero(char *p, size_t len)
 #define bzero(a,b)  __builtin_memset(a,0,b)
 #endif  //}
 
-static void
+#define nullptr ((void *)0)
+static ElfW(auxv_t) *
 auxv_up(ElfW(auxv_t) *av, unsigned const type, uint64_t const value)
 {
+    ElfW(auxv_t) *rv = nullptr;
     if (!av || (1& (size_t)av)) { // none, or inhibited for PT_INTERP
-        return;
+        return rv;
     }
     DPRINTF("\\nauxv_up %%d  %%p\\n", type, value);
     // Multiple slots can have 'type' which wastes space but is legal.
@@ -429,6 +431,7 @@ auxv_up(ElfW(auxv_t) *av, unsigned const type, uint64_t const value)
         DPRINTF("  %%d  %%p\\n", av->a_type, av->a_un.a_val);
         if (av->a_type == type) {
             av->a_un.a_val = value;
+            rv = av;
             ++found;
         }
         else if (av->a_type == AT_IGNORE) {
@@ -436,16 +439,16 @@ auxv_up(ElfW(auxv_t) *av, unsigned const type, uint64_t const value)
         }
         if (av->a_type==AT_NULL) { // done scanning
             if (found) {
-                return;
+                return rv;
             }
             if (ignore_slot) {
                 ignore_slot->a_type = type;
                 ignore_slot->a_un.a_val = value;
-                return;
+                return ignore_slot;
             }
             err_exit(20);
 ERR_LAB
-            return;
+            return rv;
         }
     }
 }
@@ -488,7 +491,8 @@ unsigned PF_TO_PROT(unsigned flags)
 // Find convex hull of PT_LOAD (the minimal interval which covers all PT_LOAD),
 // and mmap that much, to be sure that a kernel using exec-shield-randomize
 // won't place the first piece in a way that leaves no room for the rest.
-static ElfW(Addr) // returns relocation constant
+
+ElfW(Addr) // returns relocation constant
 xfind_pages(unsigned mflags, ElfW(Phdr) const *phdr, int phnum, ElfW(Addr) *const p_brk)
 {
     ElfW(Addr) lo= ~0, hi= 0, addr = 0, p_align = 0x1000;
@@ -531,25 +535,27 @@ xfind_pages(unsigned mflags, ElfW(Phdr) const *phdr, int phnum, ElfW(Addr) *cons
     }
     DPRINTF("  addr=%%p\\n", addr);
     *p_brk = len1 + addr;  // the logical value of brk(0)
+    DPRINTF("xfind_pages returns %%p\n", addr - lo);
     return (ptrdiff_t)addr - lo;
 }
 
-static ElfW(Addr)  // entry address
-do_xmap(
+static char *
+do_xmap( // mapped addr
     ElfW(Ehdr) const *const ehdr,
     Extent *const xi,
     int const fdi,
     ElfW(auxv_t) *const av,
-    ElfW(Addr) *const p_reloc
+    ElfW(Addr) reloc
 )
 {
     ElfW(Phdr) const *phdr = (ElfW(Phdr) const *)(void const *)(ehdr->e_phoff +
         (char const *)ehdr);
+    char *rv = 0;
+    void *hatch = 0;
     ElfW(Addr) v_brk = 0;
-    ElfW(Addr) reloc = 0;
     if (xi) { // compressed main program:
         // C_BASE space reservation, C_TEXT compressed data and stub
-        ElfW(Addr)  ehdr0 = *p_reloc;
+        ElfW(Addr)  ehdr0 = reloc;
         ElfW(Phdr) *phdr0 = (ElfW(Phdr) *)(1+ (ElfW(Ehdr) *)ehdr0);  // cheats .e_phoff
         v_brk = ehdr0 + phdr0->p_vaddr + phdr0->p_memsz;
         if (ET_DYN == ehdr->e_type) {
@@ -564,9 +570,8 @@ do_xmap(
             ((ET_DYN!=ehdr->e_type) ? MAP_FIXED : 0), phdr, ehdr->e_phnum, &v_brk);
     }
     DPRINTF("do_xmap  ehdr=%%p  xi=%%p(%%x %%p)  fdi=%%x\\n"
-          "  av=%%p  reloc=%%p  p_reloc=%%p/%%p\\n",
-        ehdr, xi, (xi? xi->size: 0), (xi? xi->buf: 0), fdi,
-        av, reloc, p_reloc, *p_reloc);
+          "  av=%%p  reloc=%%p\\n",
+        ehdr, xi, (xi? xi->size: 0), (xi? xi->buf: 0), fdi, av, reloc);
 
     size_t const page_mask = get_page_mask();
     int j;
@@ -622,6 +627,8 @@ do_xmap(
             if (addr != mmap(addr, mlen, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, mfd, 0)) {
                 err_exit(7);
             }
+            if (!rv)
+                rv = addr;
         }
         else {
             unsigned tprot = prot;
@@ -635,6 +642,8 @@ do_xmap(
             }
             else if (addr != mmap(addr, mlen, tprot, MAP_FIXED|MAP_PRIVATE,
                         fdi, phdr->p_offset - frag)) {
+                if (!rv)
+                    rv = addr;
                 err_exit(8);
             }
         }
@@ -653,12 +662,12 @@ do_xmap(
         }
 
         if (xi && phdr->p_flags & PF_X) {
-            void *const hatch = make_hatch(phdr, xo.buf, ~page_mask);
-            if (0!=hatch) {
-                // Always update AT_NULL, especially for compressed PT_INTERP.
-                // Clearing lo bit of av is for i386 only; else is superfluous.
-                auxv_up((ElfW(auxv_t) *)(~1 & (size_t)av), AT_NULL, (size_t)hatch);
-            }
+            if (!hatch) { // once only
+                hatch = make_hatch(phdr, xo.buf, ~page_mask);
+                if (hatch) {
+                    auxv_up(av, AT_NULL, (size_t)hatch);
+                }
+             }
 
             // SELinux: Map the contents of mfd as per *phdr.
             DPRINTF("hatch protect addr=%%p  mlen=%%p\\n", addr, mlen);
@@ -667,6 +676,8 @@ do_xmap(
             if (addr != mmap(addr, mlen, prot, MAP_FIXED|MAP_SHARED, mfd, 0)) {
                 err_exit(9);
             }
+            if (!rv)
+                rv = addr;
             close(mfd);
         }
         else if ((PROT_WRITE|PROT_READ) != prot
@@ -686,30 +697,25 @@ ERR_LAB
         // Besides, fold.S needs _Ehdr that is tossed
         // do_brk((void *)v_brk);
     }
-    if (p_reloc) {
-        *p_reloc = reloc;
-    }
-    return ehdr->e_entry + reloc;
+    return (char *)reloc;
 }
 
 
 /*************************************************************************
-// upx_main2 - called by our entry code
+e/ upx_mnullptrain2 - called by our entry code
 //
 // This function is optimized for size.
 **************************************************************************/
 
-void *
+char *
 upx_main2(  // returns entry address
 /*arg1*/    struct b_info const *const bi,  // 1st block header
 /*arg2*/    size_t const sz_compressed,  // total length
 /*arg3*/    ElfW(Ehdr) *const ehdr,  // temp char[sz_ehdr] for decompressing
 /*arg4*/    ElfW(auxv_t) *const av
-#if defined(__x86_64)  //{
+#if defined(__x86_64) || defined(__aarch64__) || defined(__riscv) // {
 /*arg5*/    , ElfW(Addr) elfaddr  // In: &ElfW(Ehdr) for stub
-#elif defined(__aarch64__) || defined(__riscv) //}{
-/*arg5*/    , ElfW(Addr) elfaddr
-#elif defined(__powerpc64__)  //}{
+#elif defined(__powerpc64__)  // }{
 /*arg5*/    , ElfW(Addr) *p_reloc  // In: &ElfW(Ehdr) for stub; Out: 'slide' for PT_INTERP
 #endif  //}
 )
@@ -729,23 +735,27 @@ upx_main2(  // returns entry address
     unpackExtent(&xi2, &xo);  // never filtered?
 
 #if defined(__x86_64) || defined(__aarch64__) || defined(__riscv)  //{
-    ElfW(Addr) *const p_reloc = &elfaddr;
+    ElfW(Addr) *const p_reloc = &auxv_up(av, AT_NULL, 
+        ((ElfW(Phdr) *)(1+ (ElfW(Ehdr) *)elfaddr))[1].p_paddr)->a_un.a_val;
+    *p_reloc = elfaddr;
+    DPRINTF("main2  p_reloc=%%p  *p_reloc=%%p\n", p_reloc, *p_reloc);
 #endif  //}
     ElfW(Addr) page_mask = get_page_mask(); (void)page_mask;
     DPRINTF("upx_main21  .e_entry=%%p  p_reloc=%%p  *p_reloc=%%p  page_mask=%%p\\n",
-        ehdr->e_entry, p_reloc, *p_reloc, page_mask);
+        ehdr->e_entry, p_reloc, (p_reloc ? *p_reloc : 0), page_mask);
     ElfW(Phdr) *phdr = (ElfW(Phdr) *)(1+ ehdr);
 
     // De-compress Ehdr again into actual position, then de-compress the rest.
-    ElfW(Addr) entry = do_xmap(ehdr, &xi1, 0, av, p_reloc);
-    DPRINTF("upx_main22  entry=%%p  *p_reloc=%%p\\n", entry, *p_reloc);
-    auxv_up(av, AT_ENTRY , entry);
+    char *reloc = do_xmap(ehdr, &xi1, 0, av, elfaddr);
+    char *entry = reloc + ((ElfW(Ehdr) *)ehdr)->e_entry;
+    DPRINTF("upx_main22  entry=%%p  reloc=%%p\\n", entry, reloc);
+    auxv_up(av, AT_ENTRY , (size_t)entry);
 
   { // Map PT_INTERP program interpreter
     phdr = (ElfW(Phdr) *)(1+ ehdr);
     unsigned j;
     for (j=0; j < ehdr->e_phnum; ++phdr, ++j) if (PT_INTERP==phdr->p_type) {
-        char const *const iname = *p_reloc + (char const *)phdr->p_vaddr;
+        char const *const iname = reloc + phdr->p_vaddr;
         int const fdi = open(iname, O_RDONLY, 0);
         if (0 > fdi) {
             err_exit(18);
@@ -756,15 +766,14 @@ ERR_LAB
         }
         // We expect PT_INTERP to be ET_DYN at 0.
         // Thus do_xmap will set *p_reloc = slide.
-        *p_reloc = 0;  // kernel picks where PT_INTERP goes
-        entry = do_xmap(ehdr, 0, fdi, 0, p_reloc);
-        DPRINTF("interp p_reloc=%%p  reloc=%%p\\n", p_reloc, *p_reloc);
-        auxv_up(av, AT_BASE, *p_reloc);  // musl
+        reloc = do_xmap(ehdr, 0, fdi, 0, 0);
+        entry = reloc + ((ElfW(Ehdr) *)reloc)->e_entry;
+        auxv_up(av, AT_BASE, (size_t)reloc);  // musl
         close(fdi);
+        break;
     }
   }
-
-    return (void *)entry;
+    return entry;
 }
 
 #if DEBUG  //{
