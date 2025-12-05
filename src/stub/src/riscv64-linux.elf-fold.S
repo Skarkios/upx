@@ -225,7 +225,6 @@ no_PSE:
         addi sp,sp,-OVERHEAD
         mv arg3,sp  # &ELf64_Ehdr temporary space
         call upx_main2  # Out: rv= entry
-    ebreak
 
 // entry= upx_main2(
 // b_info *arg1,
@@ -291,6 +290,16 @@ no_pse_map:
 // Why is this store prohibited by no PF_W access?
 //        sd zero,-NBPW(x14)  # clean the hatch
 // Also, ld.so complains rtld.c: 1683: dl_main: GL(dl_rtld_map).l_libname->next != NULL
+    ebreak
+	mv x31,sp
+	li x30,1<<20
+	sub sp,sp,x30
+	mv x30,sp
+0:
+	sd zero,0(x30); addi x30,x30,NBPW
+	bne x30,x31,0b
+	mv sp,x31
+
         jalr x14  # escape to:
         // ecall  # munmap
         // jalr x15  $ goto entry

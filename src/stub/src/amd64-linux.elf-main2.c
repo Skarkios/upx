@@ -539,7 +539,7 @@ xfind_pages(unsigned mflags, ElfW(Phdr) const *phdr, int phnum, ElfW(Addr) *cons
     return (ptrdiff_t)addr - lo;
 }
 
-static char *
+static void *
 do_xmap( // mapped addr
     ElfW(Ehdr) const *const ehdr,
     Extent *const xi,
@@ -550,7 +550,7 @@ do_xmap( // mapped addr
 {
     ElfW(Phdr) const *phdr = (ElfW(Phdr) const *)(void const *)(ehdr->e_phoff +
         (char const *)ehdr);
-    char *rv = 0;
+    void *rv = 0;
     void *hatch = 0;
     ElfW(Addr) v_brk = 0;
     if (xi) { // compressed main program:
@@ -746,7 +746,7 @@ upx_main2(  // returns entry address
     ElfW(Phdr) *phdr = (ElfW(Phdr) *)(1+ ehdr);
 
     // De-compress Ehdr again into actual position, then de-compress the rest.
-    char *reloc = do_xmap(ehdr, &xi1, 0, av, elfaddr);
+    void *reloc = do_xmap(ehdr, &xi1, 0, av, elfaddr);
     char *entry = reloc + ((ElfW(Ehdr) *)ehdr)->e_entry;
     DPRINTF("upx_main22  entry=%%p  reloc=%%p\\n", entry, reloc);
     auxv_up(av, AT_ENTRY , (size_t)entry);
