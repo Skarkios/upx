@@ -71,15 +71,15 @@ is_ptinterp=     (1<<0)
 
 // same as in riscv64-linux.elf-entry.S
 F_FRAME= 8*NBPW
-F_EOF=  7*NBPW  // used only by de-compressors
-F_ENTR= 6*NBPW; F_PMASK= F_ENTR  // UNUSED
-F_RDX=  5*NBPW  // UNUSED
-F_LENU= 4*NBPW
-F_ADRU= 3*NBPW
+F_EOFDST=7*NBPW
+F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC
+F_RDX=  5*NBPW
+F_LENU= 4*NBPW  // length of Uncompressed stub
+F_ADRU= 3*NBPW; F_PMASK= F_ADRU
 F_ELFA= 2*NBPW
-F_LENX= 1*NBPW  # 4 bytes only
-F_MFD=  1*NBPW + 4
-F_ADRX= 0*NBPW
+ F_MFD= 1*NBPW + 4  // 32-bit file descriptor
+F_LENC= 1*NBPW  // 32-bit length of Compressed stub
+F_ADRC= 0*NBPW
 
 D_FOLD=  2*NBPW  // .data space at start of unfold
 D_PMASK= 0*NBPW
@@ -107,7 +107,7 @@ L_get_page_mask:
 cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 
 // IN: [ADRX,+LENX): compressed data; [ADRU,+LENU): expanded fold (w/ upx_main2)
-// %sp= %rbp= &F_ADRX
+// %sp= %rbp= &F_ADRC
 
 // no 'section', thus '.text'; also loaded first in riscv64-linux.elf-fold.bin.
 // Code from riscv64-linux2.elf-main.c is also .text, and is next.
@@ -141,8 +141,8 @@ Palign:
         add arg2,arg2,t2
         j sysgo
 
-6: // (fold begin) F_ADRX(rbp) has is_ptinerp | unmap_all_pages
-        ld s1,F_ADRX(rbp)
+6: // (fold begin) F_ADRC(rbp) has is_ptinerp | unmap_all_pages
+        ld s1,F_ADRC(rbp)
 
 // if !unmap_all_pages then need space on stack for result of readlinkat("/proc/self/exe",...)
         andi ta,s1,unmap_all_pages; bnez ta,no_PSE
@@ -214,8 +214,8 @@ proc_self_exe:
         mv sp,rbp
 
 no_PSE:
-        ld  arg1,F_ADRX(rbp)
-        lwu arg2,F_LENX(rbp)
+        ld  arg1,F_ADRC(rbp)
+        lwu arg2,F_LENC(rbp)
         andi arg1,arg1,~(is_ptinterp | unmap_all_pages)
 
         ld arg5,F_ELFA(rbp)  # ELFA | is_ptinterp
@@ -241,6 +241,7 @@ no_PSE:
 
         //NYI call *cancel_sigsegv(%rip)
 
+#if 0  // { OLD?  subsumed by brk(v_brk) in upx_main2
 sz_Ehdr= 8*NBPW
 e_type= 16
 ET_EXEC= 2
@@ -248,10 +249,13 @@ sz_Phdr= 7*NBPW
 p_memsz= 5*NBPW
 // Discard pages of compressed data (includes [ADRX,+LENX) )
         //cmpw $ET_EXEC, e_type(%r13); jne 0f
+    ebreak  // brk() debug
+    li arg1, 0  // snooping ONLY!
         mv arg1,s1; call brk  // also sets the brk
 0:
         ld arg2,p_memsz+sz_Phdr+sz_Ehdr(s1)  #   Phdr[C_TEXT= 1].p_memsz
         mv arg1,s1; call L_munmap  # discard C_TEXT compressed data
+#endif  // }
 
 // Map 1 page of /proc/self/exe so that the symlink does not disappear.
         lwu ta,F_MFD(rbp); bltz ta,no_pse_map
@@ -268,7 +272,7 @@ p_memsz= 5*NBPW
 
 no_pse_map:
         ld arg1,F_ADRU(rbp)  # ADRU: unfolded upx_main2 etc.
-        ld arg2,F_LENU(rbp)
+        lwu arg2,F_LENU(rbp)
         li a7,__NR_munmap
 
         ld x15,F_ENTR(rbp)
@@ -290,16 +294,16 @@ no_pse_map:
 // Why is this store prohibited by no PF_W access?
 //        sd zero,-NBPW(x14)  # clean the hatch
 // Also, ld.so complains rtld.c: 1683: dl_main: GL(dl_rtld_map).l_libname->next != NULL
-    ebreak
-	mv x31,sp
-	li x30,1<<20
-	sub sp,sp,x30
-	mv x30,sp
+        mv x31,sp
+        li x30,1<<20
+        sub sp,sp,x30
+        mv x30,sp
 0:
-	sd zero,0(x30); addi x30,x30,NBPW
-	bne x30,x31,0b
-	mv sp,x31
+        sd zero,0(x30); addi x30,x30,NBPW
+        bne x30,x31,0b
+        mv sp,x31
 
+    ebreak  // hatch
         jalr x14  # escape to:
         // ecall  # munmap
         // jalr x15  $ goto entry
@@ -312,21 +316,22 @@ my_bkpt: .globl my_bkpt
 memset: .globl memset  // memset(ptr, c, n)
         beqz arg3,9f
         add arg3,arg3,arg1  // sentinel
-        mv ta,arg1  // keep rv == arg1
+        mv tb,arg1  // keep rv == arg1
 0:
-        sb arg2,0(ta); addi ta,ta,1
-        bne arg3,ta,0b
+        sb arg2,0(tb); addi tb,tb,1
+        bne arg3,tb,0b
 9:
         ret
 
 memcpy: .globl memcpy  // memcpr(dst, src, n)
         beqz arg3,9f
-        add arg3,arg3,arg2  // sentinel
-        mv ta,arg1  // keep rv == arg1
+        mv x14,arg2  // src
+        mv x15,arg1  // dst
+        add x13,arg3,x14  // end x14
 0:
-        lb tb,0(arg2); addi arg2,arg2,1
-        sb tb,0(ta); addi ta,ta,1
-        bne arg3,arg2,0b
+        lb x12,0(x14); addi x14,x14,1
+        sb x12,0(x15); addi x15,x15,1
+        bne x14,x13,0b
 9:
         ret
 

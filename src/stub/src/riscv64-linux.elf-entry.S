@@ -88,12 +88,12 @@ F_FRAME= 8*NBPW
 F_EOFDST=7*NBPW
 F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC
 F_RDX=  5*NBPW
-F_LENU= 4*NBPW
+F_LENU= 4*NBPW  // length of Uncompressed stub
 F_ADRU= 3*NBPW; F_PMASK= F_ADRU
 F_ELFA= 2*NBPW
-F_LENX= 1*NBPW  # 4 bytes only
-F_MFD=  1*NBPW + 4
-F_ADRX= 0*NBPW
+ F_MFD= 1*NBPW + 4  // 32-bit file descriptor
+F_LENC= 1*NBPW  // 32-bit length of Compressed stub
+F_ADRC= 0*NBPW
 
 D_FOLD=  2*NBPW  // .data space at start of unfold
 D_PMASK= 0*NBPW
@@ -106,7 +106,7 @@ sz_pack2= .-4
 _start: .globl _start
         jal ta,0f; 0: addi ta,ta,-8  // &sz_pack2
 
-////    nop; int3  # uncomment for debugging
+//// ebreak# uncomment for debugging
         lwu tb,0(ta)  // sz_pack2
         sub elfa,ta,tb
 
@@ -162,14 +162,14 @@ O_TMPFILE= 020000000  // 0x400000
 #define binf s1
         jal mainz
         sub rv,binf,elfa
-        sw rv,F_LENX(sp)
+        sw rv,F_LENC(sp)
 
         lwu rv,0(binf)
         add rv,rv,elfa
-        sd rv,F_ADRX(sp)
+        sd rv,F_ADRC(sp)
 
-        lwu rv,4+sz_unc(binf)
-        sd rv,F_LENU(sp)
+        lw rv,4+sz_unc(binf)
+        sw rv,F_LENU(sp)
 
 #define old_sp s9
         mv old_sp,sp

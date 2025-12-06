@@ -562,7 +562,8 @@ do_xmap( // mapped addr
             reloc = ehdr0 - phdr0[1].p_vaddr;
         }
         // paranoia: prevent "hangover" from VMA for C_BASE
-        munmap((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz);
+        //     munmap((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz);
+        mmap_privanon((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz, PROT_WRITE, MAP_FIXED);
     }
     else { // PT_INTERP
         DPRINTF("INTERP\\n", 0);
@@ -692,10 +693,8 @@ ERR_LAB
             }
         }
     }
-    if (xi && ET_DYN!=ehdr->e_type) {
-        // Needed only if compressed shell script invokes compressed shell.
-        // Besides, fold.S needs _Ehdr that is tossed
-        // do_brk((void *)v_brk);
+    if (xi) {
+        brk((void *)v_brk);
     }
     return (char *)reloc;
 }
@@ -735,7 +734,7 @@ upx_main2(  // returns entry address
     unpackExtent(&xi2, &xo);  // never filtered?
 
 #if defined(__x86_64) || defined(__aarch64__) || defined(__riscv)  //{
-    ElfW(Addr) *const p_reloc = &auxv_up(av, AT_NULL, 
+    ElfW(Addr) *const p_reloc = &auxv_up(av, AT_NULL,
         ((ElfW(Phdr) *)(1+ (ElfW(Ehdr) *)elfaddr))[1].p_paddr)->a_un.a_val;
     *p_reloc = elfaddr;
     DPRINTF("main2  p_reloc=%%p  *p_reloc=%%p\n", p_reloc, *p_reloc);
