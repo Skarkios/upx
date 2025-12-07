@@ -563,7 +563,8 @@ do_xmap( // mapped addr
         }
         // paranoia: prevent "hangover" from VMA for C_BASE
         //     munmap((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz);
-        mmap_privanon((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz, PROT_WRITE, MAP_FIXED);
+        mmap_privanon((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz,
+            PROT_READ|PROT_WRITE, MAP_FIXED);
     }
     else { // PT_INTERP
         DPRINTF("INTERP\\n", 0);
@@ -576,7 +577,7 @@ do_xmap( // mapped addr
 
     size_t const page_mask = get_page_mask();
     int j;
-    for (j=0; j < ehdr->e_phnum; ++phdr, ++j)
+  for (j=0; j < ehdr->e_phnum; ++phdr, ++j) {
     if (xi && PT_PHDR==phdr->p_type) {
         auxv_up(av, AT_PHDR, phdr->p_vaddr + reloc);
     } else
@@ -693,6 +694,7 @@ ERR_LAB
             }
         }
     }
+  }
     if (xi) {
         brk((void *)v_brk);
     }
@@ -722,6 +724,7 @@ upx_main2(  // returns entry address
     DPRINTF("upx_main2  b_info=%%p  sz_compressed=%%p  ehdr=%%p  av=%%p\\n",
         bi, sz_compressed, ehdr, av);
 #if defined(__powerpc64__)
+    ElfW(Addr) elfaddr = *p_reloc;
     DPRINTF("   p_reloc=%%p\\n", p_reloc);
 #endif
     Extent xo, xi1, xi2;

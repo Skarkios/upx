@@ -303,7 +303,6 @@ no_pse_map:
         bne x30,x31,0b
         mv sp,x31
 
-    ebreak  // hatch
         jalr x14  # escape to:
         // ecall  # munmap
         // jalr x15  $ goto entry

@@ -271,7 +271,7 @@ tc.default.readelf    = $(call tc,m-readelf)
 # default binutils functions
 define tc.default.f-embed_objinfo
 	chmod a-x $1
-	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
+	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_main2 --keep-symbol=upx_so_main $1
 	$(call tc,objcopy) -R .text -R .data -R .bss -R .riscv.attributes $1
 	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
 	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
@@ -292,7 +292,7 @@ define tc.default.f-embed_objinfo_without_xstrip
 	    -R .gnu.attributes -R .MIPS.abiflags -R .riscv.attributes \
             -R .mdebug.eabi32 -R .gcc_compiled_long32 $1
 	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $1 | $(RTRIM) > $1.disasm
-	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main $1
+	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_main2 --keep-symbol=upx_so_main $1
 
 #
 # Disassemble for human readability
@@ -324,7 +324,7 @@ define tc.default.f-embed_objinfo_without_xstrip_keep_dot_text
 	chmod a-x $1
 	$(call tc,objcopy)          -R .data -R .bss $1
 	$(call tc,objcopy) -R .comment -R .note -R .note.GNU-stack -R .reginfo $1
-	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_so_main --keep-symbol=str_upx $1
+	$(call tc,objcopy) --strip-unneeded --keep-symbol=_start --keep-symbol=upx_main2 --keep-symbol=upx_so_main --keep-symbol=str_upx $1
 #
 # Disassemble for human readability
 # objdump
@@ -2196,7 +2196,7 @@ tc_list = riscv64-linux.elf default
 riscv64-linux.elf%.h : tc_list = riscv64-linux.elf default
 riscv64-linux.elf%.h : tc_bfdname = elf64-littleriscv64
 
-tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -O -nostdinc -MMD -MT $@
+tc.riscv64-linux.elf.gcc  = /usr/bin/riscv64-linux-gnu-gcc -nostdinc -MMD -MT $@
 tc.riscv64-linux.elf.gcc += -mno-relax -mno-riscv-attribute -fno-exceptions -fno-asynchronous-unwind-tables -fno-stack-protector
 tc.riscv64-linux.elf.gcc += -Wall -W -Wcast-align -Wcast-qual -Wstrict-prototypes -Wwrite-strings -Werror
 
@@ -2241,6 +2241,7 @@ tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf
 	(echo '#define call jal'; $(call tc,gcc) -S $< -o -) \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
+	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
