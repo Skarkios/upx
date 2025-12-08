@@ -126,7 +126,8 @@ not_nrv2b:
 
   section LZMA_DAISY
     li pre8,M_LZMA; bne meth,pre8,not_lzma
-//NYI #include "arch/arm64/v8/lzma_d.S"
+#include "arch/riscv/64/lzma_d.S"
+
 not_lzma:
 
   section EXP_TAIL
@@ -153,6 +154,10 @@ eof_n2e:
 #undef fx_dst
     sd  s1,0(fx_dstlen)  # register s1 needed by unfiler and icache sync
 #undef fx_dstlen
+
+// must agree with src/riscv64-getbit.h
+#define ta  x12
+#define src x14
     lwu ta,sz_cpr(fx_src)  # expected consumption of src
     sub src,src,fx_src
     addi src,src,-sz_binfo  # actual consumption of src

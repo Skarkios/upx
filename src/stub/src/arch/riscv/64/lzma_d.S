@@ -1,5 +1,5 @@
 /*
-;  lzma_d.S -- 64-bit assembly
+;  lzma_d.S -- RiscV 64-bit assembly
 ;
 ;  This file is part of the UPX executable compressor.
 ;
@@ -33,113 +33,84 @@ NBPW= 8
 section LZMA_ELF00
 //decompress:  // (uchar const *src, size_t lsrc, uchar *dst, u32 &ldst, uint method)
 /* Arguments according to calling convention */
-#define src  %arg1  /* %rdi */
-#define lsrc %arg2  /* %rsi */
-#define dst  %arg3  /* %rdx */
-#define ldst %arg4  /* %rcx */ /* Out: actually a reference: &len_dst */
-#ifndef meth  //{
-#define meth %arg5l /* %r8  */
-#define methb %arg5b
-#endif  //}
+#define lzsrc  arg1
+#define lzlsrc arg2
+#define lzdst  arg3
+#define lzldst arg4  /* Out: actually a reference: &len_dst */
+#define lzmeth arg5
 
-// ELFMAINX (or amd64-expand.S/decompress:) has already done this for us:
-//      pushq %rbp; push %rbx  // C callable
-//      pushq ldst  // MATCH_51
-//      addq src,lsrc; push lsrc  // MATCH_52 &input_eof
-//      pushq dst  // MATCH_53
-//      subq src,lsrc //restore the value of lsrc
+// ELFMAINX (or amd64-expand.S/f_expand:) has already setup F_EOFDST, F_EOFSRC:
+//    PUSH4 s0,s1,zero,zero  // MATCH_93  ABI callee saved; MATCH_92 F_EOFSRC, F_EOFDST
+//    PUSH4 lzsrc,lzdst,llzdst,ra  // MATCH_95 params to unfilter and sync_cache
+F_FRAME= 8*NBPW
+F_EOFDST=7*NBPW
+F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 
 #ifndef NO_METHOD_CHECK
 #define M_LZMA          14
-        cmpb $ M_LZMA,methb; jne not_lzma
+        addi lzmeth,lzmeth,-M_LZMA; jne not_lzma
+#undef lzmeth
 #endif
-        pushq %rbp; movq %rsp,%rbp  // we use alloca; 'leave' is in LZMA_DEC30
+	mv s0,sp  // local frame
 
 //LzmaDecode(  // from lzmaSDK/C/7zip/Compress/LZMA_C/LzmaDecode.h
-//      %arg1= &CLzmaDecoderState,
-//      %arg2= in,  %arg3l= inSize, %arg4= &inSizeProcessed,
-//      %arg5= out, %arg6l= outSize, arg7@ 8+%esp/ &outSizeProcessed
+//  %arg1= &CLzmaDecoderState,
+//  %arg2= in,  %arg3l= inSize, %arg4= &inSizeProcessed,
+//  %arg5= out, %arg6l= outSize, arg7@ 8+%esp/ &outSizeProcessed
 //)
-        movl (ldst),%arg6l  // &outSize  XXX: 4GB
-        movq dst,%arg5  // outp
-        movq lsrc,%arg3  // inSize
-        leaq 2(src),%arg2; pushq %arg2  // MATCH_70 in; save @-8(%rbp) for size calc at eof
+        ld arg6,0(lzldst)  // outSize
+	mv arg5,lzdst  // outp
+        mv arg3,lzlsrc  // inSize
+	addi arg2,lzsrc,2  // in (beyond lzma header)
 
-        movb (src),%al; decl %arg3l  // first byte, replaces LzmaDecodeProperties()
-        movb %al,%cl  // cl= ((lit_context_bits + lit_pos_bits)<<3) | pos_bits
-        andb $7,%al  // al= pos_bits
-        shrb $3,%cl  // cl= lit_context_bits + lit_pos_bits
+#define arg7 x16
+#define lzhdrb  t2
+#define lzhpos  t1
+#define lztmp   t0
+	lbu lzhdrb,0(lzsrc); addi arg3,arg3,-1  // first byte, replaces LzmaDecodeProperties()
+        // lzhdrb= ((lit_context_bits + lit_pos_bits)<<3) | pos_bits
+        andi lzhpos,lzhdrb,7  // pos_bits
+        srli lzhdrb,lzhdrb,3  // lit_context_bits + lit_pos_bits
 
 #define LZMA_BASE_SIZE 1846
 #define LZMA_LIT_SIZE   768
-#define szSizeT 4
+#define szSizeT NBPW
 
-        movq $-LZMA_LIT_SIZE,%rbx
-        shlq %cl,%rbx; movb %al,%cl  // %cl= pos_bits
+        li  s1,LZMA_LIT_SIZE
+        sll s1,s1,lzhdrb  // by (lit_context_bits + lit_pos_bits)
 // alloca{inSizeProcessed, outSizeProcessed, *_bits, CLzmaDecoderState}
-        leaq -(2*szSizeT +4) - 2*LZMA_BASE_SIZE(%rsp,%rbx,2), %rbx
-        andq $~0<<6,%rbx  // 64-byte align
-1:
-        pushq $0  // clear CLzmaDecoderState on stack
-        cmpq %rbx,%rsp
-        jne 1b
+	slli s1,s1,1  // sizeof(unsigned short)
+	li lztmp,2*LZMA_BASE_SIZE + 2*szSizeT + NBPW
+	add s1,s1,lztmp
+	sub s1,sp,s1; andi s1,s1,~0<<6  // 64-byte align
+    ebreak
+	mv sp,s1
+0: // clear CLzmaDecoderState on stack
+	sd zero,0(s1); sd zero,NBPW(s1); addi s1,s1,2*NBPW; bne s1,s0,0b
 
+        mv arg7,sp  // &outSizeProcessed
+	addi arg1,sp,2*szSizeT  // &CLzmaDecoderState
+	                     sb lzhpos,2(arg1)  // store pos_bits
+	lbu lztmp,-1(arg2); addi arg3,arg3,-1  // second byte, replaces LzmaDecodeProperties()
+	// lztmp= (lit_pos_bits<<4) | lit_context_bits
+        srl lztmp,lztmp,4;    sb lztmp,1(arg1)  // store lit_pos_bits
+	lbu lztmp,-1(arg2)
+	andi lztmp,lztmp,0xf; sb lztmp,0(arg1)  // store lit_context_bits
+	addi arg4,arg1,-szSizeT  // &inSizeProcessed
 
-        pushq %rbx  // &outSizeProcessed [arg7]
-        leaq 2*szSizeT(%rbx),%arg1  // &CLzmaDecoderState
-        movb -1(%arg2),%cl; decl %arg3l  // second byte, replaces LzmaDecodeProperties()
-                       movb %al,2(%arg1)  // store pos_bits
-        movb  %cl,%al  // al= (lit_pos_bits<<4) | lit_context_bits
-        shrb   $4,%cl; movb %cl,1(%arg1)  // store lit_pos_bits
-        andb $0xf,%al; movb %al, (%arg1)  // store lit_context_bits
-        leaq -szSizeT(%arg1),%arg4  // &inSizeProcessed
+    ebreak  // call compiled lzma_code
+	jal lzma_code
 
-#ifdef WINDOWS_BACK
-        pushq %rax  // return address slot (dummy CALL) [value ignored]
-#else
-        push $0x5A  // return address slot (dummy CALL) [value easy to debug]
-#endif // WINDOWS_BACK
+	mv sp,s0  // de-alloca()
+	j eof_lzma
 
-#ifndef NO_RED_ZONE
-
-section LZMA_DEC10
-#include "lzma_d_cs.S"
-
-section LZMA_DEC20
-#include "lzma_d_cf.S"
-
-#else
+lzma_code:
 
 section LZMA_DEC20
 #include "lzma_d_cn.S"
 
-#endif
-
 section LZMA_DEC30
-        movq -1*NBPW(%rbp),%rsi  // MATCH_70  src [after header]
-#ifdef WINDOWS_BACK
-        movq  2*NBPW(%rbp),%rdi  // dst  (actually an un-checked bug)
-#else
-        movq  1*NBPW(%rbp),%rdi  // dst
-#endif
-        movl szSizeT(%rbx),%ecx; addq %rcx,%rsi  //  inSizeProcessed
-        movl        (%rbx),%edx; addq %rdx,%rdi  // outSizeProcessed
-        leave  //  %rsp = %rbp;  %rbp = * %rsp ++;  "enter" is in LZMA_ELF00
-
-#ifdef WINDOWS_BACK  //{  Must match stub/amd64-win64.pe.h of upx-v4.2.4.
-    // amd64-win64.pe.S has unconditional "#define NO_METHOD_CHECK"
-    // because p_w64pe_amd64.cpp assumes only one method, and generates it;
-    // thus there is no need to check the method, nor to recover from a mismatch.
-    // In such a case LZMA_DEC30 ends with the [inner] 'leave' above, and
-    // falls into section PEMAIN20, which immediately has an [outer] 'leave'.
-#else  //}{  ndef WINDOWS_BACK
-        jmp eof_lzma  # lzma de-compression is done
-    #ifndef NO_METHOD_CHECK  //{
-    not_lzma:  # recover from not matching M_LZMA
-        push %rdi; pop %rsi  # src = arg1
-        # fall into next daisy-chain method
-    #endif  //}
-#endif  //}
+	# empty
+not_lzma:   # fall into next daisy-chain lzmethod
 
 // vi:ts=8:et
-
