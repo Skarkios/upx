@@ -377,6 +377,7 @@ inline void NO_printf(const char *, ...) noexcept {}
 inline void NO_fprintf(FILE *, const char *, ...) noexcept attribute_format(2, 3);
 inline void NO_fprintf(FILE *, const char *, ...) noexcept {}
 
+// upx_memcmp_inline
 #if __has_builtin(__builtin_memcmp)
 #define upx_memcmp_inline __builtin_memcmp
 #elif defined(__clang__) || defined(__GNUC__)
@@ -384,6 +385,8 @@ inline void NO_fprintf(FILE *, const char *, ...) noexcept {}
 #else
 #define upx_memcmp_inline memcmp
 #endif
+
+// upx_memcpy_inline
 #if __has_builtin(__builtin_memcpy_inline) && 0 // TODO later: clang constexpr limitation?
 #define upx_memcpy_inline __builtin_memcpy_inline
 #elif __has_builtin(__builtin_memcpy)
@@ -394,6 +397,7 @@ inline void NO_fprintf(FILE *, const char *, ...) noexcept {}
 #define upx_memcpy_inline memcpy
 #endif
 
+// upx_return_address()
 #if defined(__wasi__)
 #define upx_return_address() nullptr
 #elif __has_builtin(__builtin_return_address)
@@ -804,7 +808,8 @@ int upx_doctest_check();
 // util/membuffer.h
 class MemBuffer;
 void *membuffer_get_void_ptr(MemBuffer &mb) noexcept;
-unsigned membuffer_get_size_in_bytes(MemBuffer &mb) noexcept;
+const void *membuffer_get_void_ptr(const MemBuffer &mb) noexcept;
+unsigned membuffer_get_size_in_bytes(const MemBuffer &mb) noexcept;
 
 // main.cpp
 extern const char *progname;

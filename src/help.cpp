@@ -49,7 +49,7 @@ const char gitrev[] = UPX_VERSION_GITREV;
 const char gitrev[1] = {0};
 #endif
 
-void show_header(void) {
+void show_header() {
     FILE *f = con_term;
     int fg;
 
@@ -85,7 +85,7 @@ void show_header(void) {
 // usage
 **************************************************************************/
 
-void show_usage(void) {
+void show_usage() {
     FILE *f = con_term;
 
     con_fprintf(f, "Usage: %s [-123456789dlthVL] [-qvfk] [-o file] %sfile..\n", progname,
@@ -381,7 +381,7 @@ void show_help(int verbose) {
 // license
 **************************************************************************/
 
-void show_license(void) {
+void show_license() {
     FILE *f = con_term;
 
     show_header();

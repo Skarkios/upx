@@ -67,12 +67,9 @@ static void handle_opterr(acc_getopt_p g, const char *f, void *v) {
 static int exit_code = EXIT_OK;
 
 #if (WITH_GUI)
-static noinline void do_exit(void) { throw exit_code; }
+static noreturn void do_exit() { throw exit_code; }
 #else
-#if defined(__GNUC__)
-static void do_exit(void) __attribute__((__noreturn__));
-#endif
-static void do_exit(void) {
+static noreturn void do_exit() {
     static bool in_exit = false;
 
     if (in_exit)
@@ -115,7 +112,7 @@ static noinline void e_exit(int ec) {
     do_exit();
 }
 
-static noinline void e_usage(void) {
+static noinline void e_usage() {
     if (opt->debug.getopt_throw_instead_of_exit)
         throw EXIT_USAGE;
     show_usage();
@@ -217,7 +214,7 @@ static void check_and_update_options(int i, int argc) {
 // misc
 **************************************************************************/
 
-static void e_help(void) {
+static void e_help() {
     show_help(0);
     e_exit(EXIT_USAGE);
 }

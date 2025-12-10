@@ -383,6 +383,8 @@ int ElfLinker::addLoader(const char *sname) {
         return outputlen;
 
     char *begin = strdup(sname);
+    assert(begin != nullptr);
+    auto begin_deleter = upx::MallocDeleter(&begin, 1);
     char *end = begin + strlen(begin);
     for (char *sect = begin; sect < end;) {
         for (char *tokend = sect; *tokend; tokend++)
@@ -434,7 +436,6 @@ int ElfLinker::addLoader(const char *sname) {
         }
         sect += strlen(sect) + 1;
     }
-    ::free(begin);
     return outputlen;
 }
 

@@ -62,7 +62,7 @@ public:
     // array access
     reference operator[](ptrdiff_t i) const may_throw {
         // NOTE: &array[SIZE] is *not* legal for containers like std::vector and MemBuffer !
-        if very_unlikely (i < 0 || mem_size(element_size, i) + element_size > size_in_bytes)
+        if very_unlikely (i < 0 || mem_size(element_size, i) >= size_in_bytes)
             throwCantPack("MemBuffer invalid array index %td (%zu bytes)", i, size_in_bytes);
         return ptr[i];
     }
@@ -169,8 +169,8 @@ inline typename MemBufferBase<T>::pointer raw_index_bytes(const MemBufferBase<T>
 #define XSPAN_REQUIRES_CONVERTIBLE_ANY_DIRECTION(A, B, RType)                                      \
     typename std::enable_if<std::is_same<A, B>::value, RType>::type
 #endif
-#define C                        MemBufferBase
 #define XSPAN_FWD_C_IS_MEMBUFFER 1
+#define C                        MemBufferBase
 #if WITH_XSPAN >= 1
 #define D XSPAN_NS(Ptr)
 #endif
@@ -198,8 +198,8 @@ public:
     void allocForCompression(unsigned uncompressed_size, unsigned extra = 0) may_throw;
     void allocForDecompression(unsigned uncompressed_size, unsigned extra = 0) may_throw;
 
-    noinline void dealloc() noexcept;
     noinline void checkState() const may_throw;
+    noinline void dealloc() noexcept;
 
     // explicit conversion
     void *getVoidPtr() noexcept { return (void *) ptr; }

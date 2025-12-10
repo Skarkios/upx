@@ -121,18 +121,17 @@ forceinline bool ptr_is_aligned(const void *p, size_t alignment) noexcept {
 
 // ptrdiff_t with nullptr checks and asserted size; will throw on failure
 // NOTE: returns size_in_bytes, not number of elements!
-int ptr_diff_bytes(const void *a, const void *b) may_throw;
-unsigned ptr_udiff_bytes(const void *a, const void *b) may_throw; // asserts a >= b
+noinline int ptr_diff_bytes(const void *a, const void *b) may_throw;
+noinline unsigned ptr_udiff_bytes(const void *a, const void *b) may_throw; // asserts a >= b
 
 // short names "ptr_diff" and "ptr_udiff" for types with sizeof(X) == 1
 template <class T, class U>
-inline typename std::enable_if<sizeof(T) == 1 && sizeof(U) == 1, int>::type ptr_diff(const T *a,
-                                                                                     const U *b)
-    may_throw {
+forceinline typename std::enable_if<sizeof(T) == 1 && sizeof(U) == 1, int>::type
+ptr_diff(const T *a, const U *b) may_throw {
     return ptr_diff_bytes(a, b);
 }
 template <class T, class U>
-inline typename std::enable_if<sizeof(T) == 1 && sizeof(U) == 1, unsigned>::type
+forceinline typename std::enable_if<sizeof(T) == 1 && sizeof(U) == 1, unsigned>::type
 ptr_udiff(const T *a, const U *b) may_throw {
     return ptr_udiff_bytes(a, b);
 }
@@ -229,7 +228,7 @@ bool maketempname(char *ofilename, size_t size, const char *ifilename, const cha
                   bool force = true);
 bool makebakname(char *ofilename, size_t size, const char *ifilename, bool force = true);
 
-bool is_envvar_true(const char *envvar, const char *alternate_name = nullptr) noexcept;
+noinline bool is_envvar_true(const char *envvar, const char *alternate_name = nullptr) noexcept;
 
 unsigned get_ratio(upx_uint64_t u_len, upx_uint64_t c_len);
 bool set_method_name(char *buf, size_t size, int method, int level);

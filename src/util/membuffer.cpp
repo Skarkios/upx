@@ -33,7 +33,8 @@
 
 // extra functions to reduce dependency on membuffer.h
 void *membuffer_get_void_ptr(MemBuffer &mb) noexcept { return mb.getVoidPtr(); }
-unsigned membuffer_get_size_in_bytes(MemBuffer &mb) noexcept { return mb.getSizeInBytes(); }
+const void *membuffer_get_void_ptr(const MemBuffer &mb) noexcept { return mb.getVoidPtr(); }
+unsigned membuffer_get_size_in_bytes(const MemBuffer &mb) noexcept { return mb.getSizeInBytes(); }
 
 /*static*/ MemBuffer::Stats MemBuffer::stats;
 
@@ -169,7 +170,7 @@ void MemBuffer::checkState() const may_throw {
     }
 }
 
-void MemBuffer::alloc(upx_uint64_t bytes) may_throw {
+void MemBuffer::alloc(const upx_uint64_t bytes) may_throw {
     // INFO: we don't automatically free a used buffer
     assert(ptr == nullptr);
     assert(size_in_bytes == 0);
@@ -185,7 +186,7 @@ void MemBuffer::alloc(upx_uint64_t bytes) may_throw {
     NO_printf("MemBuffer::alloc %llu: %p\n", bytes, p);
     if (!p)
         throwOutOfMemoryException();
-    size_in_bytes = ACC_ICONV(unsigned, bytes);
+    size_in_bytes = size_type(bytes);
     if (use_simple_mcheck()) {
         p += 16;
         // store magic constants to detect buffer overruns
@@ -323,6 +324,7 @@ TEST_CASE("MemBuffer global overloads") {
     for (size_t i = 1; i <= 16; i++) {
         MemBuffer mb(i);
         mb.clear();
+
         if (i < 2) {
             CHECK_THROWS(get_ne16(mb));
             CHECK_THROWS(get_be16(mb));
