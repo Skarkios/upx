@@ -1737,14 +1737,16 @@ PeFile::Resource::upx_rnode *PeFile::Resource::convert(const void *rnode, upx_rn
     branch->parent = parent;
     branch->nc = ic;
     branch->children = New(upx_rnode *, ic);
+    // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
+    memset(branch->children, 0, sizeof(upx_rnode *) * ic);
     branch->data = *node;
     if (!root)         // first one
         root = branch; // prevent leak if xcheck throws (hacked unpack or test)
 
     for (const res_dir_entry *rde = node->entries + ic - 1; --ic >= 0; rde--) {
         upx_rnode *child = convert(start + (rde->child & 0x7fffffff), branch, level + 1);
-        xcheck(child);
         branch->children[ic] = child;
+        xcheck(child);
         child->id = rde->tnl;
         if (child->id & 0x80000000) {
             const byte *p = start + (child->id & 0x7fffffff);

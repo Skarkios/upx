@@ -384,7 +384,7 @@ int ElfLinker::addLoader(const char *sname) {
 
     char *begin = strdup(sname);
     assert(begin != nullptr);
-    auto begin_deleter = upx::MallocDeleter(&begin, 1);
+    const auto begin_deleter = upx::MallocDeleter(&begin, 1); // don't leak memory
     char *end = begin + strlen(begin);
     for (char *sect = begin; sect < end;) {
         for (char *tokend = sect; *tokend; tokend++)
