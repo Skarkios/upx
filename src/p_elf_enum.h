@@ -108,6 +108,7 @@ class Dummy {
         /* Register usage information. */ //
         //      PT_MIPS_RTPROC =   0x70000001, /* Runtime procedure table. */
         //      PT_MIPS_OPTIONS =  0x70000002,
+        PT_ARM_EXIDX = (0x70000000 + 1),  /* ARM unwind segment.  */
         PT_MIPS_ABIFLAGS = 0x70000003, /* FP mode requirement. */
     };
 
@@ -148,6 +149,7 @@ class Dummy {
 
         SHT_LOOS = 0x60000000,                 /* LOcal OS; SHT_ANDROID_REL{,A} is +1, +2 */
         SHT_LOPROC = 0x70000000,               /* Start of processor-specific */
+        SHT_ARM_EXIDX = (SHT_LOPROC + 1),      /* ARM unwind section.  */
         SHT_ARM_ATTRIBUTES = (SHT_LOPROC + 3), /* ARM attributes section.  */
     };
 
