@@ -108,8 +108,8 @@ class Dummy {
         /* Register usage information. */ //
         //      PT_MIPS_RTPROC =   0x70000001, /* Runtime procedure table. */
         //      PT_MIPS_OPTIONS =  0x70000002,
-        PT_ARM_EXIDX = (0x70000000 + 1),  /* ARM unwind segment.  */
-        PT_MIPS_ABIFLAGS = 0x70000003, /* FP mode requirement. */
+        PT_ARM_EXIDX = (0x70000000 + 1), /* ARM unwind segment.  */
+        PT_MIPS_ABIFLAGS = 0x70000003,   /* FP mode requirement. */
     };
 
     enum {        // p_flags
