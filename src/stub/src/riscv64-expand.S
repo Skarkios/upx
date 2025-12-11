@@ -114,7 +114,7 @@ not_nrv2e:
     li pre8,M_NRV2D_LE32; bne meth,pre8,not_nrv2d
     mv dst,arg3
     mv src,arg1
-//NYI #include "arch/riscv/64/nrv2d_d.S"
+#include "arch/riscv/64/nrv2d_d.S"
 not_nrv2d:
 
   section NRV2B

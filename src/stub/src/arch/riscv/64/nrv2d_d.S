@@ -67,35 +67,62 @@ top_n2d:
 
 off_n2d:
         addi off,off,-1
-        getnextbp(foo)
+        getnextbp(off)
 getoff_n2d:
         getnextbp(off)
-        jnextb0 off_n2d
+        jnextb0np off_n2d
 
-        addiw off,off,-3; bltz off,len_n2d  # use previous offset
+        addiw off,off,-3; bltz off,offprev_n2d  # use previous offset
         slli  off,off,8; addi src,src,1  # account for previous fetch
 // XXX 2GB; addw needs sign extend (32-->64) at EOF
         addw  off,off,pre8; lbu pre8,0(src)  # prefecth
         xori disp,off,~0  # no xoriw, so need previous addw
 #undef off
+#define len val
         beqz disp,l_n2d_EOF
+        andi len,disp,1; srai disp,disp,1  # len= 0 or 1
+        j getlen_n2d
 
 offprev_n2d:
-        getnextb(len); j pointC
+        GETBIT; mv len,rbit  // m_len= 0,1
+getlen_n2d:
+        getnextb(len); bnez len,gotlen_n2d  // m_len= 0,1,2,3
 
-len_n2d:
-        getnextb(len); jne gotlen_n2d
-        inc len  // len= 1
+        li len,1  # the msb
 lenmore_n2d:
         getnextb(len)
         jnextb0n lenmore_n2d
-        addl $2,len
+        addi len,len,2  // m_len= 4..
 gotlen_n2d:
-        cmpq $-0x500,dispq
-        adcl $1,len  // len += 1+ (disp < -0x500);
+        addi len,len,1  // len= (1,2,3,4) or 5..
+off_check_n2d:
+        li ta,-0x500
+        sltu ta,disp,ta
+        add len,len,ta  // len += (disp < -0x500);
+
+#if DEBUG_NRV  //{
+    sub x27,dst,dst0
+    sw  x27,  2*4(prov)
+    sb len,3+ 2*4(prov)
+    sw disp,  3*4(prov)
+
+    sub ta,prov,prov0
+    li x26,0x100000
+    bltu x26,ta,0f; addi prov,prov,4*4; 0:
+#endif  // DEBUG_NRV }
+#undef len
+
         call copy
 bot_n2d:  // In: 0==len
-        jmp top_n2d
+        j top_n2d
+
+l_n2d_EOF:
+#if DEBUG_NRV  //{
+        lui ta,0x100000>>12
+        add sp,sp,ta
+#endif  // DEBUG_NRV }
+        j eof_n2d
+
 
 #ifndef NO_METHOD_CHECK
 not_n2d:

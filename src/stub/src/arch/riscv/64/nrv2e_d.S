@@ -35,7 +35,7 @@
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
 #undef  DEBUG_NRV
-#define DEBUG_NRV 1
+#define DEBUG_NRV 9
 #if DEBUG_NRV  //{
 #define dst0  x31
 #define src0  x30
@@ -87,14 +87,14 @@ getoff_n2e:
 #undef  off
 #define len val
         andi len,disp,1; srai disp,disp,1
-// point A: if (m_len)  # after the 'for (;;)' loop and the prev-vs-EOF testkkkkk
+// point A: if (m_len)  # after the 'for (;;)' loop and the prev-vs-EOF test
 len2or3:
         beqz len,len4or5
-        GETBIT; addi len,rbit,2; j off_check
+        GETBIT; addi len,rbit,2; j off_check_n2e
 // point B: else if (getbit(bb))
 len4or5:
         jnextb0np lenmore_n2e
-        GETBIT; addi len,rbit,4; j off_check
+        GETBIT; addi len,rbit,4; j off_check_n2e
 // point C: else
 lenmore_n2e:
         li len,1  # ss11 the msb
@@ -102,12 +102,12 @@ len_n2e:
         getnextb(len)
         jnextb0yp len_n2e
         addi len,len,6 - 2  # 6... but ss11 retval is 2 minimum
-        j off_check
+        j off_check_n2e
 
 offprev_n2e:
         GETBIT; mv len,rbit; j len2or3
 
-off_check:
+off_check_n2e:
         li ta,-0x500
         sltu ta,disp,ta
         add len,len,ta

@@ -29,7 +29,6 @@
    <jreiser@users.sourceforge.net>
 */
 
-xin_n2b: .globl xin_n2b
 #ifndef NO_METHOD_CHECK
         addi pre8,meth,-M_NRV2B_LE32; bnez pre8,not_n2b
 #endif

@@ -1,4 +1,30 @@
-// registers during NRV/UCL de-compress code
+/* riscv64-getbit.h -- register definitions for de-compressor
+
+   This file is part of the UPX executable compressor.
+
+   Copyright (C) 2025 John F. Reiser
+   All Rights Reserved.
+
+   UPX and the UCL library are free software; you can redistribute them
+   and/or modify them under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of
+   the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; see the file COPYING.
+   If not, write to the Free Software Foundation, Inc.,
+   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+   John F. Reiser
+   <jreiser@users.sourceforge.net>
+*/
+// Registers during NRV/UCL de-compress code.
+// Chosen to fit in Risc-V Compact register subset
 #define dst  x15  /* a5  rdi */
 #define src  x14  /* a4  rsi */
 #define disp x13  /* a3  rbp */

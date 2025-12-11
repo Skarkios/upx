@@ -58,6 +58,7 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 //  %arg2= in,  %arg3l= inSize, %arg4= &inSizeProcessed,
 //  %arg5= out, %arg6l= outSize, arg7@ 8+%esp/ &outSizeProcessed
 //)
+    ebreak
         ld arg6,0(lzldst)  // outSize
 	mv arg5,lzdst  // outp
         mv arg3,lzlsrc  // inSize
