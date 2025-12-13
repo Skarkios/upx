@@ -42,16 +42,15 @@ $c += -DWITH_LZMA=$(UPX_LZMA_VERSION)
 $c += -I$(UPX_LZMADIR)
 $c += -I$(top_srcdir)/src
 
-# tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attributes -R .eh_frame
-# tc.riscv64-linux.elf.objdump = /usr/bin/riscv64-linux-gnu-objdump
-# tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
+tc.riscv64-linux.elf.objcopy = /usr/bin/riscv64-linux-gnu-objcopy -R .riscv.attributes -R .eh_frame
+tc.riscv64-linux.elf.objdump = /usr/bin/riscv64-linux-gnu-objdump
+tc.riscv64-linux.elf.ld =      /usr/bin/riscv64-linux-gnu-ld
 
 lzma_d_c%.S : lzma_d_c.c
 	$(call tc,gcc) $(PP_FLAGS) -c $< -O -o tmp/$T.o
 	$(call tc,f-objstrip,tmp/$T.o)
-	$(call tc,objdump) -b binary -m elf64-littleriscv -D tmp/$T.o | $(RTRIM) > tmp/$T.out.disasm
 	$(call tc,objcopy) -O binary --only-section .text.LzmaDecode tmp/$T.o tmp/$T.bin
-	$(call tc,bin2h) --mode=gas tmp/$T.out $@
+	$(call tc,bin2h) --mode=gas tmp/$T.bin $@
 
 lzma_d_cf.% : PP_FLAGS = -DFAST
 lzma_d_cs.% : PP_FLAGS = -DSMALL
