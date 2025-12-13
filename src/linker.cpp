@@ -333,7 +333,7 @@ ElfLinker::Section *ElfLinker::addSection(const char *sname, const void *sdata, 
     sec->sort_id = nsections;
     sections[nsections++] = sec;
     if ('*' == sname[0]) {
-        if (!strcmp("*ABS*",sname)) {
+        if (!strcmp("*ABS*", sname)) {
             addSymbol("*ABS*", "*ABS*", 0);
         }
     }
@@ -356,14 +356,11 @@ ElfLinker::Symbol *ElfLinker::addSymbol(const char *name, const char *section,
 ElfLinker::Relocation *ElfLinker::addRelocation(const char *section, unsigned off, const char *type,
                                                 const char *symbol, upx_uint64_t add) {
     if (EM_RISCV == this->e_machine) {
-        if ((symbol && '.' == symbol[0])  // compiler-generated; or 0f, 0b (etc.)
-        && ( !strcmp(type, "R_RISCV_BRANCH")  // known types
-          || !strcmp(type, "R_RISCV_RVC_BRANCH")
-          || !strcmp(type, "R_RISCV_JAL")
-          || !strcmp(type, "R_RISCV_JUMP")
-          || !strcmp(type, "R_RISCV_RVC_JUMP")
-        )) {
-            return nullptr;  // ASSUME already relocated: source and target in same section
+        if ((symbol && '.' == symbol[0])        // compiler-generated; or 0f, 0b (etc.)
+            && (!strcmp(type, "R_RISCV_BRANCH") // known types
+                || !strcmp(type, "R_RISCV_RVC_BRANCH") || !strcmp(type, "R_RISCV_JAL") ||
+                !strcmp(type, "R_RISCV_JUMP") || !strcmp(type, "R_RISCV_RVC_JUMP"))) {
+            return nullptr; // ASSUME already relocated: source and target in same section
         }
     }
     if (grow_capacity(nrelocations, &nrelocations_capacity))
@@ -821,16 +818,16 @@ unsigned ins_imm_RVC_JAL(unsigned w)  // RV32 only!
 // clang-format on
 
 void ElfLinkerRiscv64LE::relocate1(const Relocation *rel, byte *location, upx_uint64_t value,
-                                 const char *type) {
-    if (strncmp(type, "R_RISCV_", 8))  // not us
+                                   const char *type) {
+    if (strncmp(type, "R_RISCV_", 8)) // not us
         return super::relocate1(rel, location, value, type);
     type += 8;
 
     if (!strncmp(type, "BRANCH", 6)) {
         value -= rel->section->offset + rel->offset;
         unsigned instr = get_le32(location);
-        set_le32(location, (( (037<<20) | (037<<15) | (7<<12) | 0x7f ) & instr)
-            | ins_imm_RV_Bxx(value));
+        set_le32(location,
+                 (((037 << 20) | (037 << 15) | (7 << 12) | 0x7f) & instr) | ins_imm_RV_Bxx(value));
     } else if (!strncmp(type, "JAL", 3)) {
         value -= rel->section->offset + rel->offset;
         unsigned instr = get_le32(location);
@@ -838,11 +835,11 @@ void ElfLinkerRiscv64LE::relocate1(const Relocation *rel, byte *location, upx_ui
     } else if (!strncmp(type, "RVC_BRANCH", 10)) {
         value -= rel->section->offset + rel->offset;
         unsigned instr = get_le16(location);
-        set_le16(location, (( (7<<13) | (7<<7) | 3) & instr) | ins_imm_RVC_Beq(value));
-    } else if (!strncmp(type, "RVC_JUMP",8)) {
+        set_le16(location, (((7 << 13) | (7 << 7) | 3) & instr) | ins_imm_RVC_Beq(value));
+    } else if (!strncmp(type, "RVC_JUMP", 8)) {
         value -= rel->section->offset + rel->offset;
         unsigned instr = get_le16(location);
-        set_le16(location, ( ( (7<<13) | 3) & instr) | ins_imm_RVC_Jmp(value));
+        set_le16(location, (((7 << 13) | 3) & instr) | ins_imm_RVC_Jmp(value));
     } else if (!strncmp(type, "32", 2)) {
         set_le32(location, value);
     } else

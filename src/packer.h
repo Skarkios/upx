@@ -189,7 +189,8 @@ protected:
     // loader util for linker
     virtual byte *getLoader() const;
     virtual int getLoaderSize() const;
-    virtual void initLoader(unsigned arch, const void *pdata, int plen, int small = -1, int pextra = 0);
+    virtual void initLoader(unsigned arch, const void *pdata, int plen, int small = -1,
+                            int pextra = 0);
 #define C const char *
     void addLoader(C);
     void addLoader(C, C);

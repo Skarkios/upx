@@ -61,6 +61,7 @@ jobs:
           git fsck --strict --no-progress
       - name: Rebuild and verify stubs
         run: |
+          apt-get install -y --no-install-recommends gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
           export PATH="$(readlink -en ../deps/bin-upx-20221212):$PATH"
           make -C src/stub maintainer-clean extra-clean
           git status || true # make sure the stub files got deleted
