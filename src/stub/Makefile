@@ -2234,24 +2234,30 @@ riscv64-linux.elf-fold.h : $(srcdir)/src/$$T.lds \
 	$(call tc,bin2h) tmp/$T.bin $@
 
 tmp/riscv64-linux.elf-fold.o : $(srcdir)/src/$$T.S
-	$(call tc,gcc) -c $< -o $@
+	$(call tc,gcc) -c -O $< -o $@
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
-	$(call tc,gcc) -c $< -o $@
+	(echo '#define call jal'; $(call tc,gcc) -S $< -o -) \
+	    | sed 's/@plt//' \
+	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
+	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c $< -o $@
 
 tmp/riscv64-linux.elf-upxfd_linux.o : $(srcdir)/src/upxfd_linux.c
-	$(call tc,gcc) -c $< -o $@
+	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
+	    | sed 's/@plt//' \
+	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
 	$(call tc,objcopy) --strip-unneeded --rename-section .text=UMF_LINUX \
 	    -R .riscv.attributes -R .data -R .bss -R .note.GNU-stack $@
 	$(call tc,objdump) -Dr $(tc_objdump_disasm_options) $@ | $(RTRIM) > $@.disasm
 
 tmp/riscv64-expand.o: $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c $< -o $@
+	$(call tc,objcopy) -R .riscv.attributes $@
 # =====
 
 # /***********************************************************************
