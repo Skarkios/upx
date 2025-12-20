@@ -1551,6 +1551,9 @@ void PeFile::processLoadConf(Interval *iv) { // pass 1
     static constexpr unsigned MAX_SOLOADCONF = 256; // XXX FIXME: Why?
     if (soloadconf > MAX_SOLOADCONF)
         info("Load Configuration directory %u > %u", soloadconf, MAX_SOLOADCONF);
+    if (lcaddr + soloadconf > ibuf.getSize()) {
+        throwCantPack("load config size exceeds file bounds");
+    }
 
     // if there were relocation entries referring to the load config table
     // then we need them for the copy of the table too
