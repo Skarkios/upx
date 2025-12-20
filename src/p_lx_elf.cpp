@@ -3207,9 +3207,14 @@ tribool PackLinuxElf32::canPack()
             throwCantPack("too many ElfXX_Phdr; try '--force-execve'");
             return false;
         }
+        upx_uint32_t const p_offset = get_te32(&phdr->p_offset);
+        upx_uint32_t const p_filesz = get_te32(&phdr->p_filesz);
+        if (this->file_size_u32 <= p_offset
+        || (this->file_size_u32  - p_offset) < p_filesz )
+            throwCantPack("bad sizes Phdr[%d]", j);
+
         if (is_LOAD(phdr)) {
             // The first PT_LOAD must cover the beginning of the file (0==p_offset).
-            upx_uint32_t const p_offset = get_te32(&phdr->p_offset);
             if (1!= exetype) {
                 exetype = 1;
                 load_va = get_te32(&phdr->p_vaddr);  // class data member
@@ -3509,9 +3514,14 @@ tribool PackLinuxElf64::canPack()
             throwCantPack("too many ElfXX_Phdr; try '--force-execve'");
             return false;
         }
+        upx_uint64_t const p_offset = get_te64(&phdr->p_offset);
+        upx_uint64_t const p_filesz = get_te64(&phdr->p_filesz);
+        if (this->file_size_u64 <= p_offset
+        || (this->file_size_u64  - p_offset) < p_filesz )
+            throwCantPack("bad sizes Phdr[%d]", j);
+
         if (is_LOAD(phdr)) {
             // The first PT_LOAD must cover the beginning of the file (0==p_offset).
-            upx_uint64_t const p_offset = get_te64(&phdr->p_offset);
             if (1!= exetype) {
                 exetype = 1;
                 load_va = get_te64(&phdr->p_vaddr);  // class data member
