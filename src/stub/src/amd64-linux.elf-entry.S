@@ -359,7 +359,7 @@ ok_memfd:
 
         lea sz_pack2(%rip),%rdi
         mov (%rdi),%ecx  // sz_pack2: length before stub
-        sub %rcx,%rdi  // elfaddr
+        sub %rcx,%rdi  // &Ehdr inside PT_LOAD[1]
         lea o_binfo(%rip),%rsi
         lodsl; xchg %eax,%ebx; mov %ebx,%r13d  // O_BINFO; advance to &b_info
 INSURANCE= 0x10

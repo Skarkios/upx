@@ -305,7 +305,7 @@ no_pse_map:
 
         jalr x14  # escape to:
         // ecall  # munmap
-        // jalr x15  $ goto entry
+        // jr x15  # goto entry
 
         section SYSCALLS
 my_bkpt: .globl my_bkpt

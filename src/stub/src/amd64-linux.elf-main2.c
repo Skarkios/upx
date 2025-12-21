@@ -541,32 +541,31 @@ xfind_pages(unsigned mflags, ElfW(Phdr) const *phdr, int phnum, ElfW(Addr) *cons
 
 static void *
 do_xmap( // mapped addr
-    ElfW(Ehdr) const *const ehdr,
+    ElfW(Ehdr) const *const ehdr,  // &Ehdr of target output (copy; de-compressed)
     Extent *const xi,
     int const fdi,
     ElfW(auxv_t) *const av,
-    ElfW(Addr) reloc
+    ElfW(Addr) const base  // &Ehdr of compressed input (only 2 PT_LOAD, etc.)
 )
 {
-    ElfW(Phdr) const *phdr = (ElfW(Phdr) const *)(void const *)(ehdr->e_phoff +
-        (char const *)ehdr);
-    void *rv = 0;
-    void *hatch = 0;
+    ElfW(Phdr) const *phdr = (ElfW(Phdr) const *)(void const *)
+        (ehdr->e_phoff + (char const *)ehdr);
+    ElfW(Addr) reloc = 0;  // default for ET_EXEC
     ElfW(Addr) v_brk = 0;
+    void *hatch = 0;
     if (xi) { // compressed main program:
         // C_BASE space reservation, C_TEXT compressed data and stub
-        ElfW(Addr)  ehdr0 = reloc;
-        ElfW(Phdr) *phdr0 = (ElfW(Phdr) *)(1+ (ElfW(Ehdr) *)ehdr0);  // cheats .e_phoff
-        v_brk = ehdr0 + phdr0->p_vaddr + phdr0->p_memsz;
+        ElfW(Phdr) const *const phdr0 = (ElfW(Phdr) *)(1+ (ElfW(Ehdr) *)base);  // cheats .e_phoff
         if (ET_DYN == ehdr->e_type) {
-            reloc = ehdr0 - phdr0[1].p_vaddr;
+            reloc = base - phdr0[1].p_vaddr;
+            v_brk = base + phdr0->p_vaddr + phdr0->p_memsz;
         }
         // paranoia: prevent "hangover" from VMA for C_BASE
         //     munmap((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz);
         mmap_privanon((void *)(reloc + phdr0->p_vaddr), phdr0->p_memsz,
             PROT_READ|PROT_WRITE, MAP_FIXED);
     }
-    else { // PT_INTERP
+    else { // PT_INTERP; 'base' not used
         DPRINTF("INTERP\\n", 0);
         reloc = xfind_pages(
             ((ET_DYN!=ehdr->e_type) ? MAP_FIXED : 0), phdr, ehdr->e_phnum, &v_brk);
@@ -629,8 +628,6 @@ do_xmap( // mapped addr
             if (addr != mmap(addr, mlen, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, mfd, 0)) {
                 err_exit(7);
             }
-            if (!rv)
-                rv = addr;
         }
         else {
             unsigned tprot = prot;
@@ -644,8 +641,6 @@ do_xmap( // mapped addr
             }
             else if (addr != mmap(addr, mlen, tprot, MAP_FIXED|MAP_PRIVATE,
                         fdi, phdr->p_offset - frag)) {
-                if (!rv)
-                    rv = addr;
                 err_exit(8);
             }
         }
@@ -678,8 +673,6 @@ do_xmap( // mapped addr
             if (addr != mmap(addr, mlen, prot, MAP_FIXED|MAP_SHARED, mfd, 0)) {
                 err_exit(9);
             }
-            if (!rv)
-                rv = addr;
             close(mfd);
         }
         else if ((PROT_WRITE|PROT_READ) != prot

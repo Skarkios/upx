@@ -189,7 +189,7 @@ p_memsz= 5*NBPW
 // Discard pages of compressed data (includes [ADRX,+LENX) )
         movq p_memsz+sz_Phdr+sz_Ehdr(%r13),%arg2  #   Phdr[C_TEXT= 1].p_memsz
         //cmpw $ET_EXEC, e_type(%r13); jne 1f
-        movq %r13,%arg1; call brk  // also sets the brk
+        //movq %r13,%arg1; call brk  // also sets the brk
 1:
         movq %r13,%arg1; call munmap  # discard C_TEXT compressed data
 

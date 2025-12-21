@@ -19,7 +19,7 @@ argv0=$0; argv0abs=$(readlink -fn "$argv0"); argv0dir=$(dirname "$argv0abs")
 # Debugging aid for locating failing commands.  Depends on 'bash' shell.
 # (BASH_LINENO is relative to current FUNCTION only; non-function ==> 0)
 # Notice single-quoting of entire first argument.
-trap 'echo ERROR: pwd=\"$PWD\"  file=\"$BASH_SOURCE\"  line=${BASH_LINENO[0]}  cmd=\"$BASH_COMMAND\"' ERR
+trap 'echo ERROR: pwd=\"$PWD\"  file=\"$BASH_SOURCE\" = $BASH_SOURCE  line=${BASH_LINENO[0]}  cmd=\"$BASH_COMMAND\"' ERR
 # Example: "false a b c" ==> ERROR: pwd="path/misc/testsuite" file="./mimic_ctest.sh" line=0 cmd="false a b c"
 
 #***********************************************************************
