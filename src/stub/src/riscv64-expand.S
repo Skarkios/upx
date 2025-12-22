@@ -139,9 +139,10 @@ not_lzma:
   .globl eof
 
 eof_lzma: .globl eof_lzma
-    ebreak  // eof_lzma
-        POP4 x2,x3, fp,ra   // MATCH_94  x2= orig_dst; x3= plen_dst
-        POP2 s0,s1
+// NYI:  almost the same as eof_n2e ?
+        POP4 fx_src,fx_dst,fx_dstlen,ra   // MATCH_95
+// NYI: unfilter, sync_cache
+        POP2 s0,s1  // MATCH_93
         addi sp,sp,2*NBPW  // MATCH_92
         ret
 

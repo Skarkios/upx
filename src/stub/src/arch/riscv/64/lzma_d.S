@@ -58,7 +58,6 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 //  %arg2= in,  %arg3l= inSize, %arg4= &inSizeProcessed,
 //  %arg5= out, %arg6l= outSize, arg7@ 8+%esp/ &outSizeProcessed
 //)
-    ebreak
         ld arg6,0(lzldst)  // outSize
 	mv arg5,lzdst  // outp
         mv arg3,lzlsrc  // inSize
@@ -84,7 +83,6 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 	li lztmp,2*LZMA_BASE_SIZE + 2*szSizeT + NBPW
 	add s1,s1,lztmp
 	sub s1,sp,s1; andi s1,s1,~0<<6  // 64-byte align
-    ebreak
 	mv sp,s1
 0: // clear CLzmaDecoderState on stack
 	sd zero,0(s1); sd zero,NBPW(s1); addi s1,s1,2*NBPW; bne s1,s0,0b
@@ -99,7 +97,6 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 	andi lztmp,lztmp,0xf; sb lztmp,0(arg1)  // store lit_context_bits
 	addi arg4,arg1,-szSizeT  // &inSizeProcessed
 
-    ebreak  // call compiled lzma_code
 	jal lzma_code
 
 	mv sp,s0  // de-alloca()
