@@ -47,11 +47,18 @@ int upx_safe_asprintf(char **ptr, const char *format, ...) may_throw attribute_f
 char *upx_safe_xprintf(const char *format, ...) may_throw attribute_format(1, 2);
 
 // noexcept variants (these use "assert_noexcept")
-upx_rsize_t upx_safe_strlen_noexcept(const char *) noexcept;
-int upx_safe_vsnprintf_noexcept(char *str, upx_rsize_t max_size, const char *format,
-                                va_list ap) noexcept;
+noinline char *upx_safe_strdup_noexcept(const char *) noexcept;
+noinline upx_rsize_t upx_safe_strlen_noexcept(const char *) noexcept;
+noinline int upx_safe_vsnprintf_noexcept(char *str, upx_rsize_t max_size, const char *format,
+                                         va_list ap) noexcept;
 
+//
 // globally redirect some functions
+//
+
+#undef strdup
+#define strdup upx_safe_strdup_noexcept
+
 #undef strlen
 #define strlen upx_safe_strlen
 
@@ -66,8 +73,15 @@ int upx_safe_vsnprintf_noexcept(char *str, upx_rsize_t max_size, const char *for
 // some uchar string support functions to avoid casts
 **************************************************************************/
 
+forceinline uchar *upx_safe_strdup_noexcept(const uchar *s) noexcept {
+    return (uchar *) upx_safe_strdup_noexcept((const char *) s);
+}
+
 forceinline upx_rsize_t upx_safe_strlen(const uchar *s) may_throw {
     return upx_safe_strlen((const char *) s);
+}
+forceinline upx_rsize_t upx_safe_strlen_noexcept(const uchar *s) noexcept {
+    return upx_safe_strlen_noexcept((const char *) s);
 }
 
 forceinline uchar *strcpy(uchar *s1, const uchar *s2) noexcept {

@@ -444,7 +444,7 @@ int upx_lzma_decompress(const upx_bytep src, unsigned src_len, upx_bytep dst, un
                   res->lit_context_bits, res->dict_size, res->num_probs);
         UNUSED(res);
     }
-    s.Probs = (CProb *) malloc(sizeof(CProb) * LzmaGetNumProbs(&s.Properties));
+    s.Probs = (CProb *) ::malloc(sizeof(CProb) * LzmaGetNumProbs(&s.Properties));
     if (!s.Probs) {
         r = UPX_E_OUT_OF_MEMORY;
         goto error;
@@ -463,7 +463,7 @@ int upx_lzma_decompress(const upx_bytep src, unsigned src_len, upx_bytep dst, un
 
 error:
     *dst_len = dst_out;
-    free(s.Probs);
+    ::free(s.Probs);
     return r;
 }
 

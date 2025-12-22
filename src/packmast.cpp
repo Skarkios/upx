@@ -213,7 +213,9 @@ PackerBase *PackMaster::visitAllPackers(visit_func_t func, InputFile *f, const O
     VISIT(PackMachFat);   // cafebabe conflict
     VISIT(PackLinuxI386); // cafebabe conflict
 
+    //
     // Mach (Darwin / macOS)
+    //
     VISIT(PackDylibAMD64);
     VISIT(PackMachPPC32); // TODO: this works with upx 3.91..3.94 but got broken in 3.95; FIXME
     VISIT(PackMachI386);
@@ -287,7 +289,7 @@ void PackMaster::fileInfo() may_throw {
     if (!packer)
         packer = visitAllPackers(try_can_pack, fi, opt, fi);
     if (!packer)
-        throwUnknownExecutableFormat(nullptr, 1); // make a warning here
+        throwUnknownExecutableFormat(nullptr, true); // make a warning here
     packer->doFileInfo();
 }
 

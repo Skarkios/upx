@@ -287,7 +287,7 @@ struct ElfClass_32 {
     typedef N_Elf32::Sym<ElfITypes> Sym;
     typedef N_Elf ::External_Note<ElfITypes> External_Note;
 
-    static void compileTimeAssertions() {
+    static void compileTimeAssertions() noexcept {
         BeLePolicy::compileTimeAssertions();
         COMPILE_TIME_ASSERT(sizeof(Ehdr) == 52)
         COMPILE_TIME_ASSERT(sizeof(Phdr) == 32)
@@ -328,7 +328,7 @@ struct ElfClass_64 {
     typedef N_Elf64::Sym<ElfITypes> Sym;
     typedef N_Elf ::External_Note<ElfITypes> External_Note;
 
-    static void compileTimeAssertions() {
+    static void compileTimeAssertions() noexcept {
         BeLePolicy::compileTimeAssertions();
         COMPILE_TIME_ASSERT(sizeof(Ehdr) == 64)
         COMPILE_TIME_ASSERT(sizeof(Phdr) == 56)

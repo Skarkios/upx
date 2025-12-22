@@ -1100,7 +1100,8 @@ void main_get_envoptions() {
     var = upx_getenv(OPTIONS_VAR);
     if (var == nullptr || !var[0])
         return;
-    env = strdup(var);
+    env = ::strdup(var);
+    assert_noexcept(env != nullptr);
     if (env == nullptr)
         return;
 

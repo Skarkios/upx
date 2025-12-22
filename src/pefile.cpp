@@ -44,11 +44,12 @@
 #define IPTR_VAR_OFFSET(type, var, offset)                                                         \
     SPAN_S_VAR(type, var, ibuf + (offset), ibuf.getSize() - (offset), ibuf + (offset))
 
-static void xcheck(const void *p) {
+static void xcheck(const void *p) may_throw {
     if very_unlikely (p == nullptr)
         throwCantUnpack("xcheck unexpected nullptr pointer; take care!");
 }
-static void xcheck(const void *p, size_t plen, const void *b, size_t blen) {
+static void xcheck_noexcept(const void *p) noexcept { assert_noexcept(p != nullptr); }
+static void xcheck(const void *p, size_t plen, const void *b, size_t blen) may_throw {
     const charptr pp = (const charptr) p;
     const charptr bb = (const charptr) b;
     if very_unlikely (pp < bb || pp > bb + blen || pp + plen > bb + blen)
@@ -235,8 +236,8 @@ int __acc_cdecl_qsort PeFile::Interval::compare(const void *p1, const void *p2) 
 void PeFile::Interval::add_interval(unsigned start, unsigned len) {
     if (ivnum == ivcapacity) {
         ivcapacity += 15;
-        ivarr = (interval *) realloc(ivarr, mem_size(sizeof(interval), ivcapacity));
-        assert(ivarr != nullptr);
+        ivarr = (interval *) ::realloc(ivarr, mem_size(sizeof(interval), ivcapacity));
+        assert_noexcept(ivarr != nullptr);
     }
     ivarr[ivnum].start = start;
     ivarr[ivnum].len = len;
@@ -1222,7 +1223,8 @@ void PeFile::Export::convert(unsigned eoffs, unsigned esize) {
         throwInternalError(msg);
     }
     unsigned len = strlen(base + edir.name) + 1;
-    ename = strdup(base + edir.name);
+    ename = ::strdup(base + edir.name);
+    assert_noexcept(ename != nullptr);
     size += len;
     iv.add_interval(edir.name, len);
 
@@ -1245,7 +1247,8 @@ void PeFile::Export::convert(unsigned eoffs, unsigned esize) {
     for (ic = 0; ic < edir.names; ic++) {
         char *n = base + get_le32(base + edir.nameptrtable + ic * sizeof(LE32));
         len = strlen(n) + 1;
-        names[ic] = strdup(n);
+        names[ic] = ::strdup(n);
+        assert_noexcept(names[ic] != nullptr);
         size += len;
         iv.add_interval(get_le32(base + edir.nameptrtable + ic * sizeof(LE32)), len);
     }
@@ -1260,7 +1263,8 @@ void PeFile::Export::convert(unsigned eoffs, unsigned esize) {
             len = strlen(forw) + 1;
             iv.add_interval(forw, len);
             size += len;
-            names[ic + edir.names] = strdup(forw);
+            names[ic + edir.names] = ::strdup(forw);
+            assert_noexcept(names[ic + edir.names] != nullptr);
         } else
             names[ic + edir.names] = nullptr;
 
@@ -1611,20 +1615,20 @@ struct alignas(1) PeFile::Resource::res_data final {
 };
 
 struct PeFile::Resource::upx_rnode /*not_final*/ {
-    unsigned id;
-    byte *name;
-    upx_rnode *parent;
+    unsigned id = 0;
+    byte *name = nullptr;
+    upx_rnode *parent = nullptr;
 };
 
 struct PeFile::Resource::upx_rbranch final : public PeFile::Resource::upx_rnode {
-    unsigned nc;
-    upx_rnode **children;
+    unsigned nc = 0;
+    upx_rnode **children = nullptr;
     res_dir data;
 };
 
 struct PeFile::Resource::upx_rleaf final : public PeFile::Resource::upx_rnode {
-    upx_rleaf *next;
-    unsigned newoffset;
+    upx_rleaf *next = nullptr;
+    unsigned newoffset = 0;
     res_data data;
 };
 
@@ -1738,10 +1742,8 @@ PeFile::Resource::upx_rnode *PeFile::Resource::convert(const void *rnode, upx_rn
     branch->id = 0;
     branch->name = nullptr;
     branch->parent = parent;
+    branch->children = New0(upx_rnode *, ic);
     branch->nc = ic;
-    branch->children = New(upx_rnode *, ic);
-    // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
-    memset(branch->children, 0, sizeof(upx_rnode *) * ic);
     branch->data = *node;
     if (!root)         // first one
         root = branch; // prevent leak if xcheck throws (hacked unpack or test)
@@ -1824,7 +1826,7 @@ byte *PeFile::Resource::build() {
 }
 
 void PeFile::Resource::destroy(upx_rnode *node, unsigned level) noexcept {
-    xcheck(node);
+    xcheck_noexcept(node);
     if (level == 3) {
         upx_rleaf *leaf = ACC_STATIC_CAST(upx_rleaf *, node);
         delete[] leaf->name;
@@ -1835,7 +1837,8 @@ void PeFile::Resource::destroy(upx_rnode *node, unsigned level) noexcept {
         delete[] branch->name;
         branch->name = nullptr;
         for (int ic = branch->nc; --ic >= 0;)
-            destroy(branch->children[ic], level + 1);
+            if (branch->children[ic] != nullptr)
+                destroy(branch->children[ic], level + 1);
         delete[] branch->children;
         branch->children = nullptr;
         delete branch;

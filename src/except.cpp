@@ -38,7 +38,7 @@ Throwable::Throwable(const char *m, int e, bool w) noexcept : super(),
                                                               err(e),
                                                               is_warning(w) {
     if (m != nullptr) {
-        msg = strdup(m);
+        msg = ::strdup(m);
         assert_noexcept(msg != nullptr);
     }
     NO_fprintf(stderr, "construct exception: %zu %zu %s\n", size_t(stats.counter_current),
@@ -52,7 +52,7 @@ Throwable::Throwable(const Throwable &other) noexcept : super(other),
                                                         err(other.err),
                                                         is_warning(other.is_warning) {
     if (other.msg != nullptr) {
-        msg = strdup(other.msg);
+        msg = ::strdup(other.msg);
         assert_noexcept(msg != nullptr);
     }
     NO_fprintf(stderr, "copy construct exception: %zu %zu %s\n", size_t(stats.counter_current),

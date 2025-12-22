@@ -71,7 +71,7 @@ bool mem_size_valid(upx_uint64_t element_size, upx_uint64_t n, upx_uint64_t extr
 }
 
 upx_rsize_t mem_size(upx_uint64_t element_size, upx_uint64_t n, upx_uint64_t extra1,
-                     upx_uint64_t extra2) {
+                     upx_uint64_t extra2) may_throw {
     assert(element_size > 0);
     if very_unlikely (element_size == 0 || element_size > UPX_RSIZE_MAX)
         throwCantPack("mem_size 1; take care");
@@ -144,7 +144,8 @@ TEST_CASE("ptr_diff") {
 }
 
 // check that 2 buffers do not overlap; will throw on error
-void ptraddr_check_no_overlap(upx_ptraddr_t a, size_t a_size, upx_ptraddr_t b, size_t b_size) {
+void ptraddr_check_no_overlap(upx_ptraddr_t a, size_t a_size, upx_ptraddr_t b, size_t b_size)
+    may_throw {
     if very_unlikely (a == 0 || b == 0)
         throwCantPack("ptr_check_no_overlap-nullptr");
     upx_ptraddr_t a_end = a + mem_size(1, a_size);
@@ -160,7 +161,7 @@ void ptraddr_check_no_overlap(upx_ptraddr_t a, size_t a_size, upx_ptraddr_t b, s
 
 // check that 3 buffers do not overlap; will throw on error
 void ptraddr_check_no_overlap(upx_ptraddr_t a, size_t a_size, upx_ptraddr_t b, size_t b_size,
-                              upx_ptraddr_t c, size_t c_size) {
+                              upx_ptraddr_t c, size_t c_size) may_throw {
     if very_unlikely (a == 0 || b == 0 || c == 0)
         throwCantPack("ptr_check_no_overlap-nullptr");
     upx_ptraddr_t a_end = a + mem_size(1, a_size);
@@ -253,8 +254,16 @@ TEST_CASE("ptr_check_no_overlap 3") {
 // stdlib
 **************************************************************************/
 
+void *upx_calloc(size_t n, size_t element_size) may_throw {
+    const upx_rsize_t bytes = mem_size(element_size, n); // assert size
+    void *p = ::malloc(bytes);
+    if likely (p != nullptr && bytes > 0)
+        memset(p, 0, bytes);
+    return p;
+}
+
 const char *upx_getenv(const char *envvar) noexcept {
-    if (envvar != nullptr && envvar[0])
+    if likely (envvar != nullptr && envvar[0])
         return ::getenv(envvar);
     return nullptr;
 }
@@ -280,14 +289,6 @@ void upx_rand_init() noexcept {
     seed ^= ((unsigned) getpid()) << 4;
 #endif
     ::srand(seed);
-}
-
-void *upx_calloc(size_t n, size_t element_size) may_throw {
-    size_t bytes = mem_size(element_size, n); // assert size
-    void *p = ::malloc(bytes);
-    if (p != nullptr)
-        memset(p, 0, bytes);
-    return p;
 }
 
 // simple unoptimized memswap()

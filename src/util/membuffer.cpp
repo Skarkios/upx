@@ -85,7 +85,7 @@ MemBuffer::MemBuffer(upx_uint64_t bytes) may_throw : MemBufferBase<byte>() {
 MemBuffer::~MemBuffer() noexcept { this->dealloc(); }
 
 /*static*/
-unsigned MemBuffer::getSizeForCompression(unsigned uncompressed_size, unsigned extra) {
+unsigned MemBuffer::getSizeForCompression(unsigned uncompressed_size, unsigned extra) may_throw {
     if (uncompressed_size == 0)
         throwCantPack("invalid uncompressed_size");
     const size_t z = uncompressed_size; // fewer keystrokes and display columns
@@ -100,26 +100,26 @@ unsigned MemBuffer::getSizeForCompression(unsigned uncompressed_size, unsigned e
 }
 
 /*static*/
-unsigned MemBuffer::getSizeForDecompression(unsigned uncompressed_size, unsigned extra) {
+unsigned MemBuffer::getSizeForDecompression(unsigned uncompressed_size, unsigned extra) may_throw {
     if (uncompressed_size == 0)
         throwCantPack("invalid uncompressed_size");
     size_t bytes = mem_size(1, uncompressed_size, extra); // check size
     return ACC_ICONV(unsigned, bytes);
 }
 
-void MemBuffer::allocForCompression(unsigned uncompressed_size, unsigned extra) {
+void MemBuffer::allocForCompression(unsigned uncompressed_size, unsigned extra) may_throw {
     unsigned bytes = getSizeForCompression(uncompressed_size, extra);
     alloc(bytes);
     debug_set(debug.last_return_address_alloc, upx_return_address());
 }
 
-void MemBuffer::allocForDecompression(unsigned uncompressed_size, unsigned extra) {
+void MemBuffer::allocForDecompression(unsigned uncompressed_size, unsigned extra) may_throw {
     unsigned bytes = getSizeForDecompression(uncompressed_size, extra);
     alloc(bytes);
     debug_set(debug.last_return_address_alloc, upx_return_address());
 }
 
-void MemBuffer::fill(size_t off, size_t bytes, int value) {
+void MemBuffer::fill(size_t off, size_t bytes, int value) may_throw {
     debug_set(debug.last_return_address_fill, upx_return_address());
     checkState();
     // check overrun and wrap-around
@@ -131,7 +131,7 @@ void MemBuffer::fill(size_t off, size_t bytes, int value) {
 
 // similar to BoundedPtr, except checks only at creation
 // skip == offset, take == size_in_bytes
-void *MemBuffer::subref_impl(const char *errfmt, size_t skip, size_t take) {
+void *MemBuffer::subref_impl(const char *errfmt, size_t skip, size_t take) may_throw {
     debug_set(debug.last_return_address_subref, upx_return_address());
     checkState();
     // check overrun and wrap-around
@@ -177,7 +177,7 @@ void MemBuffer::alloc(const upx_uint64_t bytes) may_throw {
     //
     assert(bytes > 0);
     debug_set(debug.last_return_address_alloc, upx_return_address());
-    size_t malloc_bytes = mem_size(1, bytes); // check size
+    upx_rsize_t malloc_bytes = mem_size(1, bytes); // check size
     if (use_simple_mcheck())
         malloc_bytes += 32;
     else

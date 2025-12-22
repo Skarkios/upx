@@ -623,10 +623,10 @@ struct TriBool final {
     static constexpr bool is_third_true = IsThirdTrue;
     // types
     typedef T underlying_type;
-    static_assert(std::is_integral_v<underlying_type>);
     typedef decltype(T(0) + T(0)) promoted_type;
-    static_assert(std::is_integral_v<promoted_type>);
     enum value_type : underlying_type { False = 0, True = 1, Third = 2 };
+    static_assert(std::is_integral_v<underlying_type>);
+    static_assert(std::is_integral_v<promoted_type>);
     static_assert(sizeof(value_type) == sizeof(underlying_type));
     static_assert(sizeof(underlying_type) <= sizeof(promoted_type));
     // constructors
@@ -687,6 +687,8 @@ struct OptVar final {
     static constexpr T max_value = max_value_;
     static_assert(min_value <= default_value && default_value <= max_value);
 
+    explicit constexpr OptVar() noexcept {}
+
     // automatic conversion
     constexpr operator T() const noexcept { return value; }
 
@@ -698,7 +700,6 @@ struct OptVar final {
     }
     void assertValue() const noexcept { assertValue(value); }
 
-    constexpr OptVar() noexcept {}
     OptVar &operator=(const T &other) noexcept { // copy constructor
         assertValue(other);
         value = other;

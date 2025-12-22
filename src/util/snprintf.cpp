@@ -31,6 +31,19 @@
 // UPX version of string functions, with assertions and sane limits
 **************************************************************************/
 
+char *upx_safe_strdup_noexcept(const char *s) noexcept {
+#undef strlen
+    assert_noexcept(s != nullptr);
+    size_t len = strlen(s);
+    assert_noexcept(len < UPX_RSIZE_MAX_STR);
+    char *p = (char *) ::malloc(len + 1);
+    assert_noexcept(p != nullptr);
+    if (p != nullptr)
+        memcpy(p, s, len + 1);
+    return p;
+#define strlen upx_safe_strlen
+}
+
 upx_rsize_t upx_safe_strlen(const char *s) {
 #undef strlen
     assert(s != nullptr);

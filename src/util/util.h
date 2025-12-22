@@ -67,16 +67,15 @@ inline void mem_size_assert(upx_uint64_t element_size, upx_uint64_t n) may_throw
 }
 
 // "new" with asserted size; will throw on invalid size
-#if DEBUG
 template <class T>
-T *NewArray(upx_uint64_t n) may_throw {
+inline T *NewT(upx_uint64_t n) may_throw {
     COMPILE_TIME_ASSERT(std::is_standard_layout<T>::value)
     COMPILE_TIME_ASSERT(std::is_trivially_copyable<T>::value)
     COMPILE_TIME_ASSERT(std::is_trivially_default_constructible<T>::value)
-    upx_rsize_t bytes = mem_size(sizeof(T), n); // assert size
+    const upx_rsize_t bytes = mem_size(sizeof(T), n); // assert size
     T *array = new T[size_t(n)];
 #if !defined(__SANITIZE_MEMORY__)
-    if (array != nullptr && bytes > 0) {
+    if likely (array != nullptr && bytes > 0) {
         memset(array, 0xfb, bytes); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
         (void) VALGRIND_MAKE_MEM_UNDEFINED(array, bytes);
     }
@@ -84,10 +83,24 @@ T *NewArray(upx_uint64_t n) may_throw {
     UNUSED(bytes);
     return array;
 }
-#define New(type, n) (NewArray<type>((n)))
+#if DEBUG || 1
+#define New(type, n) (NewT<type>((n)))
 #else
 #define New(type, n) new type[mem_size_get_n(sizeof(type), (n))]
 #endif
+
+template <class T>
+inline T *New0T(upx_uint64_t n) may_throw {
+    COMPILE_TIME_ASSERT(std::is_standard_layout<T>::value)
+    COMPILE_TIME_ASSERT(std::is_trivially_copyable<T>::value)
+    COMPILE_TIME_ASSERT(std::is_trivially_default_constructible<T>::value)
+    const upx_rsize_t bytes = mem_size(sizeof(T), n); // assert size
+    T *array = new T[size_t(n)];
+    if likely (array != nullptr && bytes > 0)
+        memset(array, 0, bytes); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+    return array;
+}
+#define New0(type, n) (New0T<type>((n)))
 
 /*************************************************************************
 // ptr util

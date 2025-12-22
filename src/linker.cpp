@@ -30,9 +30,9 @@
 #include "p_elf_enum.h"
 #include "linker.h"
 
-static unsigned hex(uchar c) { return (c & 0xf) + (c > '9' ? 9 : 0); }
+static inline unsigned hex(uchar c) noexcept { return (c & 0xf) + (c > '9' ? 9 : 0); }
 
-static bool grow_capacity(unsigned size, unsigned *capacity) {
+static bool grow_capacity(unsigned size, unsigned *capacity) noexcept {
     if (size < *capacity)
         return false;
     if (*capacity == 0)
@@ -43,16 +43,16 @@ static bool grow_capacity(unsigned size, unsigned *capacity) {
 }
 
 template <class T>
-static T **realloc_array(T **array, size_t capacity) may_throw {
+static noinline T **realloc_array(T **array, size_t capacity) may_throw {
     assert_noexcept(capacity > 0);
     // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
-    void *p = realloc(array, mem_size(sizeof(T *), capacity));
+    void *p = ::realloc(array, mem_size(sizeof(T *), capacity));
     assert_noexcept(p != nullptr);
     return static_cast<T **>(p);
 }
 
 template <class T>
-static void free_array(T **array, size_t count) noexcept {
+static noinline void free_array(T **array, size_t count) noexcept {
     for (size_t i = 0; i < count; i++) {
         T *item = upx::atomic_exchange(&array[i], (T *) nullptr);
         delete item;
@@ -66,7 +66,7 @@ static void free_array(T **array, size_t count) noexcept {
 
 ElfLinker::Section::Section(const char *n, const void *i, unsigned s, unsigned a)
     : name(nullptr), output(nullptr), size(s), offset(0), p2align(a), next(nullptr) {
-    name = strdup(n);
+    name = ::strdup(n);
     assert_noexcept(name != nullptr);
     input = ::malloc(s + 1);
     assert_noexcept(input != nullptr);
@@ -88,7 +88,7 @@ ElfLinker::Section::~Section() noexcept {
 
 ElfLinker::Symbol::Symbol(const char *n, Section *s, upx_uint64_t o)
     : name(nullptr), section(s), offset(o) {
-    name = strdup(n);
+    name = ::strdup(n);
     assert_noexcept(name != nullptr);
     assert_noexcept(section != nullptr);
 }
@@ -382,8 +382,8 @@ int ElfLinker::addLoader(const char *sname) {
     if (!sname[0])
         return outputlen;
 
-    char *begin = strdup(sname);
-    assert(begin != nullptr);
+    char *begin = ::strdup(sname);
+    assert_noexcept(begin != nullptr);
     const auto begin_deleter = upx::MallocDeleter(&begin, 1); // don't leak memory
     char *end = begin + strlen(begin);
     for (char *sect = begin; sect < end;) {
@@ -393,8 +393,7 @@ int ElfLinker::addLoader(const char *sname) {
                 break;
             }
 
-        if (sect[0] == '+') // alignment
-        {
+        if (sect[0] == '+') { // alignment
             assert(tail);
             unsigned l = hex(sect[2]) - tail->offset - tail->size;
             unsigned m = hex(sect[1]);
