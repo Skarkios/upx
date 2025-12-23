@@ -205,11 +205,11 @@ L10:
         b no_buf_pse
 
 yes_buf_pse:
-        sub x0,x1,#PATH_MAX // buffer for readlink
-        sub x6,x0,#4  // space for copy of space3eq
+        sub x0,sp,#PATH_MAX // alloc buffer for readlink
+        sub x6,x0,#4  // alloc for copy of space3eq
         sub x1,x1,x6  // amount needed for x0,x1,argc,argv,env,auxv
-        sub x0,x6,x1  // space for x0,x1,argc,argv,env,auxv
-        sub x0,x0,#NBPW  // room for added env ptr
+        sub x0,x6,x1  //         alloc for x0,x1,argc,argv,env,auxv
+        sub x0,x0,#NBPW  // alloc for added env ptr
         and x0,x0,#~0<<4  // sp must be 16-byte aligned
         add x1,sp,#3*NBPW  // old_argv; avoid 0==argc impostor for terminator of argv
         mov sp,x0  // new_sp
