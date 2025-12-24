@@ -36,6 +36,7 @@ NBPW= 8
 #include "arch/riscv/64/macros.S"
 #include "arch/riscv/64/regs.h"
 #define arg7 a6
+#define call jal
 
 #include "MAX_ELF_HDR.S"
 
@@ -55,7 +56,7 @@ __NR_read     = 0x3f  //  63
 __NR_write    = 0x40  //  64
 
   section SO_HEAD
-	.global PAGE_MASK  // workaround for bug in build chain
+        .global PAGE_MASK  // workaround for bug in build chain
 PAGE_MASK: .quad 0xfffffffffffff000  // default
 upxfn_path:.quad 0  // displacement from "zero"
 
@@ -74,12 +75,11 @@ frag_align:  // CALLED VIA  "jal x5,frag_align" AT MOST 3 ARGUMENTS
         and arg4,arg1,arg4  # frag
         add arg2,arg2,arg4  # len += frag
         sub arg1,arg1,arg4  # pos -= frag  // aligned
-        jalr x5
+        jr x5
 
 Punmap: .globl Punmap
         jal x5,frag_align
 munmap: .globl munmap
-    bkpt
         syscall __NR_munmap; ret
 
 // Sometimes Linux enforces page-aligned address
@@ -103,9 +103,7 @@ mmap: .globl mmap
         syscall __NR_mmap; ret
 
 Psync: .globl Psync
-    bkpt
         jal x5,frag_align
-
 // fall into msync
         syscall __NR_msync; ret
 
@@ -115,14 +113,14 @@ fold:  // enter here (arg1= &so_info; arg2= &{argc,argv,envp,lr}
 //  LENU: MATCH_10  len unfolded_code
 //  s0,s1: ABI saved registers
 //  MATCH_00  argc,argv,envp,ra
-    bkpt  // fold entry
         addi sp,sp,-MAX_ELF_HDR_64; mv arg3,sp  // space for Elf64_Ehdr and Elf64_Phdrs
+.globl upx_so_main
         call upx_so_main  // (&so_info, &argc, elf_tmp); returns &escape_hatch
         addi sp,sp, MAX_ELF_HDR_64
         mv   arg3,arg1  // save &escape_hatch
-        POP2 arg1,arg5  // F_ADRU, F_LENU  (unfolded region)
+        POP4 arg1,arg2,s0,s1  // F_ADRU, F_LENU  (unfolded region); ABI
         li a7,__NR_munmap
-        jalr arg3  // syscall; POP4(x0,x1,x2,lr}; ret
+        jr arg3  // syscall; POP4(x0,x1,x2,lr}; ret
 
 get4:  .globl get4  // un-aligned fetch (little endian)
     mv  arg2,arg1
@@ -225,6 +223,7 @@ get_sys_munmap: .globl get_sys_munmap  // r0= system call instruction
         li rv,0x00000073  // ecall
         ret
 
+my_memcpy: .globl my_memcpy  // impostor unknown to gcc
 memcpy: .globl memcpy  // void *memcpy(void *dst, void const *src, size_t len)
         mv arg5,arg1; beqz arg3,9f  // rv
         add arg3,arg3,arg2  // src sentinel
@@ -236,7 +235,6 @@ memcpy: .globl memcpy  // void *memcpy(void *dst, void const *src, size_t len)
         ret
 
 memset: .globl memset  // void *memset(void *dst, int c, size_t len);
-    bkpt  // memset
         mv arg5,arg1; beqz arg3,9f  // rv
         add arg3,arg3,arg1  // dst sentinel
 0:

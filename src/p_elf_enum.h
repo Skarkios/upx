@@ -266,6 +266,7 @@ class Dummy {
         R_ARM_RELATIVE = 23,
         R_PPC_RELATIVE = 22,
         R_PPC64_RELATIVE = R_PPC_RELATIVE,
+        R_RISCV_RELATIVE = 3,
         R_X86_64_RELATIVE = 8,
 
         R_386_JMP_SLOT = 7,
@@ -284,6 +285,7 @@ class Dummy {
         R_X86_64_64 = 1,
         R_AARCH64_ABS64 = 257,
         R_AARCH64_GLOB_DAT = 1025,
+        R_RISCV_64 = 2,
 
     };
 #endif // WANT_REL_ENUM

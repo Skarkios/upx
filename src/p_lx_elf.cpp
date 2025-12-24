@@ -1750,6 +1750,7 @@ PackLinuxElf64::buildLinuxLoader(
   if (0 < szfold) {
     if (xct_off // shlib
       && (  this->e_machine==Elf64_Ehdr::EM_X86_64
+         || this->e_machine==Elf64_Ehdr::EM_RISCV
          || this->e_machine==Elf64_Ehdr::EM_AARCH64)
     ) {
         initLoader(this->e_machine, fold, szfold);
@@ -2261,24 +2262,24 @@ PackLinuxElf64arm::buildLoader(const Filter *ft)
 
 static const CLANG_FORMAT_DUMMY_STATEMENT
 #include "stub/riscv64-linux.elf-entry.h"
-//static const CLANG_FORMAT_DUMMY_STATEMENT
-//#include "stub/riscv64-linux.elf-so_entry.h"
+static const CLANG_FORMAT_DUMMY_STATEMENT
+#include "stub/riscv64-linux.elf-so_entry.h"
 static const CLANG_FORMAT_DUMMY_STATEMENT
 #include "stub/riscv64-linux.elf-fold.h"
-//static const CLANG_FORMAT_DUMMY_STATEMENT
-//#include "stub/riscv64-linux.elf-so_fold.h"
+static const CLANG_FORMAT_DUMMY_STATEMENT
+#include "stub/riscv64-linux.elf-so_fold.h"
 //static const CLANG_FORMAT_DUMMY_STATEMENT
 //#include "stub/riscv64-linux.shlib-init.h"
 
 void
 PackLinuxElf64riscv64::buildLoader(const Filter *ft)
 {
-//    if (0!=xct_off) {  // shared library
-//        buildLinuxLoader(
-//            stub_riscv64_linux_elf_so_entry, sizeof(stub_riscv64_linux_elf_so_entry),
-//            stub_riscv64_linux_elf_so_fold,  sizeof(stub_riscv64_linux_elf_so_fold), ft);
-//        return;
-//    }
+    if (0!=xct_off) {  // shared library
+        buildLinuxLoader(
+            stub_riscv64_linux_elf_so_entry, sizeof(stub_riscv64_linux_elf_so_entry),
+            stub_riscv64_linux_elf_so_fold,  sizeof(stub_riscv64_linux_elf_so_fold), ft);
+        return;
+    }
     buildLinuxLoader(
         stub_riscv64_linux_elf_entry, sizeof(stub_riscv64_linux_elf_entry),
         stub_riscv64_linux_elf_fold,  sizeof(stub_riscv64_linux_elf_fold), ft);
@@ -3077,6 +3078,20 @@ upx_uint64_t PackLinuxElf64::canPack_Shdr(Elf64_Phdr const *pload_x0)
                             user_init_va = get_te64(&rp->r_addend);
                         }
                         else if (R_AARCH64_ABS64 == r_type) {
+                            user_init_va = get_te64(&dynsym[ELF64_R_SYM(r_info)].st_value);
+                        }
+                        else {
+                            char msg[50]; snprintf(msg, sizeof(msg),
+                                "bad relocation %#llx DT_INIT_ARRAY[0]",
+                                r_info);
+                            throwCantPack(msg);
+                        }
+                    }
+                    else if (Elf64_Ehdr::EM_RISCV == e_machine) {
+                        if (R_RISCV_RELATIVE == r_type) {
+                            user_init_va = get_te64(&rp->r_addend);
+                        }
+                        else if (R_RISCV_64 == r_type) {
                             user_init_va = get_te64(&dynsym[ELF64_R_SYM(r_info)].st_value);
                         }
                         else {

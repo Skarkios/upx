@@ -220,7 +220,7 @@ L360:  // /dev/shm might be restricted to 8KiB at a time!
         addi arg1,x5,-5*4  // &SO_INFO
         add arg2,sp,F_ARGC  // &{argc, argv, envp}
         addi sp,sp,F_ADRU
-        jalr 2*NBPW(u_ptr)
+        jr 2*NBPW(u_ptr)
 
 //%esp:
 //  MATCH_04  ptr unfolded_code

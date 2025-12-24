@@ -2277,7 +2277,7 @@ tmp/riscv64-linux.elf-so_main.o : $(srcdir)/src/$$T.c
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
 	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
-	$(call tc,objcopy) --rename-section .text=SO_MAIN -R .comment -R .note -R .note.GNU-stack -R .reginfo $@
+	$(call tc,objcopy) --rename-section .text=SO_MAIN --keep-symbol=upx_so_main -R .comment -R .note -R .note.GNU-stack -R .reginfo $@
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
