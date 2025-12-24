@@ -139,11 +139,13 @@ not_lzma:
   .globl eof
 
 eof_lzma: .globl eof_lzma
+        mv src,rv  # return value
 // NYI:  almost the same as eof_n2e ?
         POP4 fx_src,fx_dst,fx_dstlen,ra   // MATCH_95
 // NYI: unfilter, sync_cache
         POP2 s0,s1  // MATCH_93
         addi sp,sp,2*NBPW  // MATCH_92
+        mv rv,src  # return value
         ret
 
 eof_n2b:

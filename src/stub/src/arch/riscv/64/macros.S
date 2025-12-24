@@ -93,4 +93,8 @@ NBPW= 8
         sub \dst,\dst,\src
 .endm
 
+.macro bkpt
+	ebreak
+.endm
+
 // vi:ts=8:et:nowrap

@@ -35,18 +35,18 @@
         lui bits,0x80000  // (1<<31): empty; force refill
         li disp,-1  // initial displacement
 #undef  DEBUG_NRV
-#define DEBUG_NRV 9
+#define DEBUG_NRV 0
 #if DEBUG_NRV  //{
+#define LEN_ROV 0x100000
 #define dst0  x31
 #define src0  x30
-#define prov0 x29
+#define hi_rov x29
 #define prov  x28
         mv dst0,dst
         mv src0,src
-        lui prov0,0x100000>>12
-        sub sp,sp,prov0
-        mv prov0,sp
-        mv prov,sp
+	mov hi_rov,sp
+        li prov,LEN_ROV
+        sub prov,sp,prov
 
                         sw zero,0(prov)
         lw pre8,0(src); sw pre8,4(prov)
@@ -113,14 +113,13 @@ off_check_n2e:
         add len,len,ta
 
 #if DEBUG_NRV  //{
-    sub x27,dst,dst0
-    sw  x27,  2*4(prov)
+    bgeu prov,hi_rov,0f
+    sub ta,dst,dst0
+    sw  ta,   2*4(prov)
     sb len,3+ 2*4(prov)
     sw disp,  3*4(prov)
-
-    sub ta,prov,prov0
-    li x26,0x100000
-    bltu x26,ta,0f; addi prov,prov,4*4; 0:
+    addi prov,prov,4*4
+0:
 #endif  // DEBUG_NRV }
 #undef len
 
@@ -130,7 +129,7 @@ copy_n2e:
 
 l_n2e_EOF:
 #if DEBUG_NRV  //{
-        lui ta,0x100000>>12
+        li ta,LEN_ROV
         add sp,sp,ta
 #endif  // DEBUG_NRV }
         j eof_n2e
