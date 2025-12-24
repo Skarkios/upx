@@ -94,7 +94,7 @@ NBPW= 8
 .endm
 
 .macro bkpt
-	ebreak
+        ebreak
 .endm
 
 // vi:ts=8:et:nowrap

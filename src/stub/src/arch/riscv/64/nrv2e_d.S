@@ -44,7 +44,7 @@
 #define prov  x28
         mv dst0,dst
         mv src0,src
-	mov hi_rov,sp
+        mov hi_rov,sp
         li prov,LEN_ROV
         sub prov,sp,prov
 
