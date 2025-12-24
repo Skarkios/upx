@@ -44,6 +44,8 @@ endif
 ifndef STUBS
 STUBS += riscv64-linux.elf-entry.h
 STUBS += riscv64-linux.elf-fold.h
+STUBS += riscv64-linux.elf-so_entry.h
+STUBS += riscv64-linux.elf-so_fold.h
 STUBS += amd64-darwin.dylib-entry.h
 STUBS += amd64-darwin.macho-entry.h
 STUBS += amd64-darwin.macho-fold.h
@@ -2223,6 +2225,12 @@ riscv64-linux.elf-entry.h : $(srcdir)/src/$$T.S
 	$(call tc,f-embed_objinfo,tmp/$T.bin)
 	$(call tc,bin2h) tmp/$T.bin $@
 
+riscv64-linux.elf-so_entry.h: $(srcdir)/src/$$T.S
+	$(call tc,gcc) -c -O $< -o tmp/$T.o
+	$(call tc,ld) -r tmp/$T.o               -Map tmp/$T.map $(filter %.o,$^) -o tmp/$T.bin
+	$(call tc,f-embed_objinfo_without_xstrip,tmp/$T.bin)
+	$(call tc,bin2h) tmp/$T.bin $@
+
 riscv64-linux.elf-fold.h : $(srcdir)/src/$$T.lds \
 	    tmp/$$T.o \
 	    tmp/riscv64-linux.elf-help_umf.o \
@@ -2233,22 +2241,50 @@ riscv64-linux.elf-fold.h : $(srcdir)/src/$$T.lds \
 	$(call tc,f-embed_objinfo_without_xstrip_keep_dot_text,tmp/$T.bin)
 	$(call tc,bin2h) tmp/$T.bin $@
 
+riscv64-linux.elf-so_fold.h : $(srcdir)/src/$$T.lds \
+	    tmp/riscv64-expand.o \
+	    tmp/riscv64-linux.elf-help_umf.o \
+	    tmp/riscv64-linux.elf-upxfd_linux.o \
+	    tmp/$$T.o \
+	    tmp/riscv64-linux.elf-so_main.o
+	@echo; echo TARGET=$@  PATH=$(PATH); echo
+	$(call tc,ld)     -r -Map tmp/$T.map $(filter %.o,$^) -o tmp/$T.bin
+	ls -l tmp/$T.bin
+	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
+	$(call tc,f-embed_objinfo_without_xstrip,tmp/$T.bin)
+	$(call tc,bin2h) tmp/$T.bin $@
+
 tmp/riscv64-linux.elf-fold.o : $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c -O $< -o $@
 	$(call tc,f-objstrip,$@)
 
-tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
-	(echo '#define call jal'; $(call tc,gcc) -S $< -o -) \
+tmp/riscv64-linux.elf-so_fold.o : $(srcdir)/src/$$T.S
+	$(call tc,gcc) -S -O $< -o - \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
 	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
+	$(call tc,f-objstrip,$@)
+
+tmp/riscv64-linux.elf-main2.o : $(srcdir)/src/$$T.c $(srcdir)/src/i386-linux.elf-main2.c
+	( echo '#define call jal'; $(call tc,gcc) -S -O $< -o - ) \
+	    | sed 's/@plt//' \
+	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
+	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
+	$(call tc,f-objstrip,$@)
+
+tmp/riscv64-linux.elf-so_main.o : $(srcdir)/src/$$T.c
+	( echo '#define call jal'; $(call tc,gcc) -S -O $< -o - ) \
+	    | sed 's/@plt//' \
+	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
+	$(call tc,gpp_mkdep) --mode=c --MMD=$@ --MF=tmp/$T.d $<
+	$(call tc,objcopy) --rename-section .text=SO_MAIN -R .comment -R .note -R .note.GNU-stack -R .reginfo $@
 	$(call tc,f-objstrip,$@)
 
 tmp/riscv64-linux.elf-help_umf.o: $(srcdir)/src/$$T.S
 	$(call tc,gcc) -c $< -o $@
 
 tmp/riscv64-linux.elf-upxfd_linux.o : $(srcdir)/src/upxfd_linux.c
-	(echo '#define call jal'; $(call tc,gcc) -S -O $< -o -) \
+	( echo '#define call jal'; $(call tc,gcc) -S -O $< -o - ) \
 	    | sed 's/@plt//' \
 	    | $(call tc,gcc) -c -x assembler-with-cpp - -o $@
 	$(call tc,objcopy) --strip-unneeded --rename-section .text=UMF_LINUX \
