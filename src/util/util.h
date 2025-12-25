@@ -65,6 +65,9 @@ inline upx_rsize_t mem_size_get_n(upx_uint64_t element_size, upx_uint64_t n) may
 inline void mem_size_assert(upx_uint64_t element_size, upx_uint64_t n) may_throw {
     (void) mem_size(element_size, n); // assert size
 }
+inline void mem_size_assert_noexcept(upx_uint64_t element_size, upx_uint64_t n) noexcept {
+    assert_noexcept(mem_size_valid(element_size, n)); // assert size
+}
 
 // "new" with asserted size; will throw on invalid size
 template <class T>

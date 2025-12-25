@@ -335,7 +335,7 @@ struct CheckIntegral {
         static constexpr U z[2] = {};
     };
     template <class U>
-    static void checkU(void) noexcept {
+    static void checkU() noexcept {
         {
             U a = {};
             const U b = {};
@@ -377,7 +377,7 @@ struct CheckIntegral {
         static_assert(upx_is_integral<U>::value);
         static_assert(upx_is_integral_v<U>);
     }
-    static void check_core(void) noexcept {
+    static void check_core() noexcept {
         {
             TestT t = {};
             assert_noexcept(t.a == 0);
@@ -418,7 +418,7 @@ struct CheckIntegral {
             assert_noexcept(upx::max(one, four) == four);
         }
     }
-    static void check(void) noexcept {
+    static void check() noexcept {
         check_core();
         {
             T zero, one, three, four;
@@ -458,7 +458,7 @@ struct CheckIntegral {
 
 template <class T>
 struct CheckAlignment {
-    static void check(void) noexcept {
+    static void check() noexcept {
         COMPILE_TIME_ASSERT_ALIGNED1(T)
         struct alignas(1) Test1 {
             char a;
@@ -483,7 +483,7 @@ struct CheckAlignment {
 
 template <class T>
 struct TestBELE {
-    static noinline bool test(void) noexcept {
+    static noinline bool test() noexcept {
         static_assert(upx::is_same_any_v<T, BE16, BE32, BE64, LE16, LE32, LE64>);
         static_assert(
             upx::is_same_any_v<typename T::integral_conversion_type, upx_uint32_t, upx_uint64_t>);
@@ -665,7 +665,7 @@ struct CheckSignedness {
     static_assert(std::is_signed_v<T> == T_is_signed);
     static_assert(std::is_unsigned_v<T> == !T_is_signed);
     template <class U, bool U_is_signed>
-    static inline void checkU(void) noexcept {
+    static inline void checkU() noexcept {
         static_assert(std::is_integral_v<U>);
         static_assert(std::is_signed_v<U> == U_is_signed);
         static_assert(std::is_unsigned_v<U> == !U_is_signed);
@@ -675,7 +675,7 @@ struct CheckSignedness {
         static_assert(all_bits == U(~U(0)));
         static_assert(U_is_signed ? (all_bits < 0) : (all_bits > 0));
     }
-    static void check(void) noexcept {
+    static void check() noexcept {
         checkU<T, T_is_signed>();
         using signed_type = std::make_signed_t<T>;
         checkU<signed_type, true>();
@@ -698,7 +698,7 @@ struct CheckTypePair {
     static_assert(std::is_same_v<B, std::make_unsigned_t<B> >);
     static_assert(sizeof(A) == sizeof(B));
     static_assert(alignof(A) == alignof(B));
-    static inline void check(void) noexcept {}
+    static inline void check() noexcept {}
 };
 
 template <class A, class B>
@@ -810,7 +810,7 @@ struct TestFloat {
     }
 };
 
-static noinline void check_basic_floating_point(void) noexcept {
+static noinline void check_basic_floating_point() noexcept {
     assert_noexcept(i64_f32_add_div(1000000, 1000000) == 2.0f);
     assert_noexcept(u64_f32_add_div(1000000, 1000000) == 2.0f);
     assert_noexcept(i64_f32_sub_div(3000000, 1000000) == 2.0f);
@@ -835,7 +835,7 @@ static noinline void check_basic_floating_point(void) noexcept {
 #undef ACCCHK_ASSERT
 #include "../util/miniacc.h"
 
-void upx_compiler_sanity_check(void) noexcept {
+void upx_compiler_sanity_check() noexcept {
     check_basic_floating_point();
 
     if (is_envvar_true("UPX_DEBUG_DOCTEST_DISABLE", "UPX_DEBUG_DISABLE_DOCTEST")) {
