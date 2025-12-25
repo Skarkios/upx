@@ -112,7 +112,6 @@ cancel_sigsegv: .quad 0  // subroutine that cancels sigaction(SIGSEGV,)
 // no 'section', thus '.text'; also loaded first in riscv64-linux.elf-fold.bin.
 // Code from riscv64-linux2.elf-main.c is also .text, and is next.
 fold_begin:
-    bkpt
         mv rbp,sp
         j 6f
 
@@ -123,7 +122,6 @@ Pprotect: .globl Pprotect
 Punmap: .globl Punmap  // page-align the lo end
 munmap: .global munmap
 L_munmap:
-    bkpt
         li a7,__NR_munmap
         j 3f
 
@@ -358,7 +356,6 @@ sys_check:
 
 
 Psync: .globl Psync
-    bkpt
         li a7,__NR_msync
         j sysgo
 
