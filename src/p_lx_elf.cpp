@@ -1267,7 +1267,7 @@ int const *
 PackLinuxElf64riscv64::getFilters() const
 {
     static const int filters[] = {
-            // NYI
+        0x55,
     FT_END };
     return filters;
 }
