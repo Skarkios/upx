@@ -319,6 +319,7 @@ namespace {
 
 template <class T>
 struct CheckIntegral {
+    // UPX extras
     static_assert(upx_is_integral<T>::value);
     static_assert(upx_is_integral_v<T>);
     struct TestT {
@@ -335,7 +336,22 @@ struct CheckIntegral {
         static constexpr U z[2] = {};
     };
     template <class U>
-    static void checkU() noexcept {
+    static noinline void checkU() noexcept {
+#if __cplusplus <= 201703L
+        static_assert(std::is_pod<U>::value); // std::is_pod is deprecated in C++20
+#endif
+        static_assert(std::is_standard_layout<U>::value);
+#if __cplusplus <= 202302L
+        static_assert(std::is_trivial<U>::value); // std::is_trivial is deprecated in C++26
+#endif
+        // more checks, these are probably implied by std::is_trivial
+        static_assert(std::is_nothrow_default_constructible<U>::value);
+        static_assert(std::is_nothrow_destructible<U>::value);
+        static_assert(std::is_trivially_copyable<U>::value);
+        static_assert(std::is_trivially_default_constructible<U>::value);
+        // UPX extras
+        static_assert(upx_is_integral<U>::value);
+        static_assert(upx_is_integral_v<U>);
         {
             U a = {};
             const U b = {};
@@ -363,21 +379,10 @@ struct CheckIntegral {
             assert_noexcept(t.y[0] == 0 && t.y[1] == 0);
             assert_noexcept(t.z[0] == 0 && t.z[1] == 0);
         }
-#if __cplusplus <= 201703L
-        static_assert(std::is_pod<U>::value); // std::is_pod is deprecated in C++20
-#endif
-        static_assert(std::is_standard_layout<U>::value);
-        static_assert(std::is_trivial<U>::value);
-        // more checks, these are probably implied by std::is_trivial
-        static_assert(std::is_nothrow_default_constructible<U>::value);
-        static_assert(std::is_nothrow_destructible<U>::value);
-        static_assert(std::is_trivially_copyable<U>::value);
-        static_assert(std::is_trivially_default_constructible<U>::value);
-        // UPX extras
-        static_assert(upx_is_integral<U>::value);
-        static_assert(upx_is_integral_v<U>);
     }
-    static void check_core() noexcept {
+    static noinline void check_core() noexcept {
+        checkU<T>();
+        checkU<typename std::add_const<T>::type>();
         {
             TestT t = {};
             assert_noexcept(t.a == 0);
@@ -399,8 +404,6 @@ struct CheckIntegral {
             assert_noexcept(t.a == 0);
             assert_noexcept(t.x[0] == 0 && t.x[1] == 0);
         }
-        checkU<T>();
-        checkU<typename std::add_const<T>::type>();
         {
             T zero, one, three, four;
             zero = 0;
@@ -418,7 +421,7 @@ struct CheckIntegral {
             assert_noexcept(upx::max(one, four) == four);
         }
     }
-    static void check() noexcept {
+    static noinline void check() noexcept {
         check_core();
         {
             T zero, one, three, four;
@@ -483,10 +486,10 @@ struct CheckAlignment {
 
 template <class T>
 struct TestBELE {
+    static_assert(upx::is_same_any_v<T, BE16, BE32, BE64, LE16, LE32, LE64>);
+    static_assert(
+        upx::is_same_any_v<typename T::integral_conversion_type, upx_uint32_t, upx_uint64_t>);
     static noinline bool test() noexcept {
-        static_assert(upx::is_same_any_v<T, BE16, BE32, BE64, LE16, LE32, LE64>);
-        static_assert(
-            upx::is_same_any_v<typename T::integral_conversion_type, upx_uint32_t, upx_uint64_t>);
         CheckIntegral<T>::check();
         CheckAlignment<T>::check();
         // arithmetic checks
@@ -763,33 +766,41 @@ static noinline void check_basic_cxx_exception_handling(void (*func)(int)) noexc
 // basic floating point checks to early catch toolchain/qemu/wine/etc problems
 //
 
-static noinline float i64_f32_add_div(upx_int64_t a, upx_int64_t b) { return (a + b) / 1000000.0f; }
-static noinline float u64_f32_add_div(upx_uint64_t a, upx_uint64_t b) {
+static noinline float i64_f32_add_div(upx_int64_t a, upx_int64_t b) noexcept {
     return (a + b) / 1000000.0f;
 }
-static noinline float i64_f32_sub_div(upx_int64_t a, upx_int64_t b) { return (a - b) / 1000000.0f; }
-static noinline float u64_f32_sub_div(upx_uint64_t a, upx_uint64_t b) {
+static noinline float u64_f32_add_div(upx_uint64_t a, upx_uint64_t b) noexcept {
+    return (a + b) / 1000000.0f;
+}
+static noinline float i64_f32_sub_div(upx_int64_t a, upx_int64_t b) noexcept {
+    return (a - b) / 1000000.0f;
+}
+static noinline float u64_f32_sub_div(upx_uint64_t a, upx_uint64_t b) noexcept {
     return (a - b) / 1000000.0f;
 }
 
-static noinline double i64_f64_add_div(upx_int64_t a, upx_int64_t b) { return (a + b) / 1000000.0; }
-static noinline double u64_f64_add_div(upx_uint64_t a, upx_uint64_t b) {
+static noinline double i64_f64_add_div(upx_int64_t a, upx_int64_t b) noexcept {
     return (a + b) / 1000000.0;
 }
-static noinline double i64_f64_sub_div(upx_int64_t a, upx_int64_t b) { return (a - b) / 1000000.0; }
-static noinline double u64_f64_sub_div(upx_uint64_t a, upx_uint64_t b) {
+static noinline double u64_f64_add_div(upx_uint64_t a, upx_uint64_t b) noexcept {
+    return (a + b) / 1000000.0;
+}
+static noinline double i64_f64_sub_div(upx_int64_t a, upx_int64_t b) noexcept {
+    return (a - b) / 1000000.0;
+}
+static noinline double u64_f64_sub_div(upx_uint64_t a, upx_uint64_t b) noexcept {
     return (a - b) / 1000000.0;
 }
 
 template <class Int, class Float>
 struct TestFloat {
     static constexpr Int X = 1000000;
-    static noinline Float div(Int a, Float f) { return a / f; }
-    static noinline Float add_div(Int a, Int b, Float f) { return Float(a + b) / f; }
-    static noinline Float sub_div(Int a, Int b, Float f) { return Float(a - b) / f; }
-    static noinline Float add_div_x(Int a, Int b) { return Float(a + b) / Float(X); }
-    static noinline Float sub_div_x(Int a, Int b) { return Float(a - b) / Float(X); }
-    static noinline void check() noexcept {
+    static noinline Float div(Int a, Float f) noexcept { return a / f; }
+    static noinline Float add_div(Int a, Int b, Float f) noexcept { return Float(a + b) / f; }
+    static noinline Float sub_div(Int a, Int b, Float f) noexcept { return Float(a - b) / f; }
+    static noinline Float add_div_x(Int a, Int b) noexcept { return Float(a + b) / Float(X); }
+    static noinline Float sub_div_x(Int a, Int b) noexcept { return Float(a - b) / Float(X); }
+    static noinline void test() noexcept {
         assert_noexcept(div(2 * X, Float(X)) == Float(2));
         assert_noexcept(add_div(X, X, Float(X)) == Float(2));
         assert_noexcept(add_div_x(X, X) == Float(2));
@@ -819,14 +830,14 @@ static noinline void check_basic_floating_point() noexcept {
     assert_noexcept(u64_f64_add_div(1000000, 1000000) == 2.0);
     assert_noexcept(i64_f64_sub_div(3000000, 1000000) == 2.0);
     assert_noexcept(u64_f64_sub_div(3000000, 1000000) == 2.0);
-    TestFloat<upx_int32_t, float>::check();
-    TestFloat<upx_uint32_t, float>::check();
-    TestFloat<upx_int64_t, float>::check();
-    TestFloat<upx_uint64_t, float>::check();
-    TestFloat<upx_int32_t, double>::check();
-    TestFloat<upx_uint32_t, double>::check();
-    TestFloat<upx_int64_t, double>::check();
-    TestFloat<upx_uint64_t, double>::check();
+    TestFloat<upx_int32_t, float>::test();
+    TestFloat<upx_uint32_t, float>::test();
+    TestFloat<upx_int64_t, float>::test();
+    TestFloat<upx_uint64_t, float>::test();
+    TestFloat<upx_int32_t, double>::test();
+    TestFloat<upx_uint32_t, double>::test();
+    TestFloat<upx_int64_t, double>::test();
+    TestFloat<upx_uint64_t, double>::test();
 }
 
 } // namespace
@@ -1072,11 +1083,13 @@ void upx_compiler_sanity_check() noexcept {
         static_assert(mem_eq(UPX_VERSION_STRING4, UPX_VERSION_STRING, 3));
         static_assert(mem_eq(UPX_VERSION_YEAR, UPX_VERSION_DATE_ISO, 4));
         static_assert(mem_eq(UPX_VERSION_YEAR, &UPX_VERSION_DATE[sizeof(UPX_VERSION_DATE) - 5], 4));
-        char buf[16];
+        char buf[64];
         constexpr long long v = UPX_VERSION_HEX;
-        upx_safe_snprintf(buf, sizeof(buf), "%lld.%lld.%lld", (v >> 16), (v >> 8) & 255, v & 255);
+        upx_safe_snprintf_noexcept(buf, sizeof(buf), "%lld.%lld.%lld", (v >> 16), (v >> 8) & 255,
+                                   v & 255);
         assert_noexcept(strcmp(buf, UPX_VERSION_STRING) == 0);
-        upx_safe_snprintf(buf, sizeof(buf), "%lld.%lld%lld", (v >> 16), (v >> 8) & 255, v & 255);
+        upx_safe_snprintf_noexcept(buf, sizeof(buf), "%lld.%lld%lld", (v >> 16), (v >> 8) & 255,
+                                   v & 255);
         assert_noexcept(strcmp(buf, UPX_VERSION_STRING4) == 0);
     }
 

@@ -75,6 +75,9 @@ static_assert((char) (-1) == 255);             // -funsigned-char
 #if defined(__clang__) && __has_warning("-Wunnecessary-virtual-specifier")
 #pragma clang diagnostic ignored "-Wunnecessary-virtual-specifier"
 #endif
+#if (ACC_CC_GNUC && ACC_CC_GNUC < 0x090000)
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 // enable some more strict warnings for Git developer builds
 #if defined(UPX_CONFIG_DISABLE_WSTRICT) && (UPX_CONFIG_DISABLE_WSTRICT + 0 == 0)
 #if defined(UPX_CONFIG_DISABLE_WERROR) && (UPX_CONFIG_DISABLE_WERROR + 0 == 0)
@@ -108,6 +111,10 @@ static_assert((char) (-1) == 255);             // -funsigned-char
 #elif (ACC_CC_GNUC >= 0x090000) && 1 // gcc-9
 #define upx_is_constant_evaluated __builtin_is_constant_evaluated
 #endif
+
+// cosmetic: explicitly annotate some functions which may throw exceptions;
+//   note that noexcept(false) is the default for all C++ functions anyway
+#define may_throw noexcept(false)
 
 // multithreading (UPX currently does not use multithreading)
 #if (WITH_THREADS)
@@ -225,15 +232,12 @@ typedef long long upx_off_t;
 #else
 #define noreturn noinline
 #endif
+
 #define forceinline_constexpr forceinline constexpr
 #define likely                __acc_likely
 #define unlikely              __acc_unlikely
 #define very_likely           __acc_very_likely
 #define very_unlikely         __acc_very_unlikely
-
-// cosmetic: explicitly annotate some functions which may throw exceptions;
-//   note that noexcept(false) is the default for all C++ functions anyway
-#define may_throw noexcept(false)
 
 #define COMPILE_TIME_ASSERT(e) ACC_COMPILE_TIME_ASSERT(e)
 #define DELETED_FUNCTION       = delete
@@ -438,6 +442,7 @@ inline void NO_fprintf(FILE *, const char *, ...) noexcept {}
 
 #define TABLESIZE(table) ((sizeof(table) / sizeof((table)[0])))
 
+// mem_clear()
 template <class T>
 inline void mem_clear(T *object) noexcept {
     static_assert(std::is_class_v<T>); // UPX convention

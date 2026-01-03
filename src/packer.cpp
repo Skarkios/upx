@@ -705,7 +705,7 @@ int Packer::patch_le32(void *b, int blen, const void *old, unsigned new_) {
 // loader util (interface to linker)
 **************************************************************************/
 
-static const char *getIdentstr(unsigned *size, int small) {
+static noinline const char *getIdentstr(unsigned *size, int small) {
     // IMPORTANT: we do NOT change "http://upx.sf.net"
     static char identbig[] =
         "\n\0"

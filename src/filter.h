@@ -112,7 +112,7 @@ private:
     };
 
     // get a specific filter entry
-    static const FilterEntry *getFilter(int id);
+    static noinline const FilterEntry *getFilter(int id);
 
 private:
     // strictly private filter database

@@ -31,26 +31,33 @@
 // UPX version of string functions, with assertions and sane limits
 **************************************************************************/
 
-upx_rsize_t upx_safe_strlen(const char *) may_throw;
+noinline upx_rsize_t upx_safe_strlen(const char *) may_throw;
 
 // info: snprintf() returns length and NOT size, but max_size is indeed size (incl NUL)
 
-int upx_safe_vsnprintf(char *str, upx_rsize_t max_size, const char *format, va_list ap) may_throw;
-int upx_safe_snprintf(char *str, upx_rsize_t max_size, const char *format, ...)
+noinline int upx_safe_vsnprintf(char *str, upx_rsize_t max_size, const char *format, va_list ap)
+    may_throw;
+noinline int upx_safe_snprintf(char *str, upx_rsize_t max_size, const char *format, ...)
     may_throw attribute_format(3, 4);
 
 // malloc's *ptr
-int upx_safe_vasprintf(char **ptr, const char *format, va_list ap) may_throw;
-int upx_safe_asprintf(char **ptr, const char *format, ...) may_throw attribute_format(2, 3);
+noinline int upx_safe_vasprintf(char **ptr, const char *format, va_list ap) may_throw;
+noinline int upx_safe_asprintf(char **ptr, const char *format, ...)
+    may_throw attribute_format(2, 3);
 
 // returns a malloc'd pointer
-char *upx_safe_xprintf(const char *format, ...) may_throw attribute_format(1, 2);
+noinline char *upx_safe_xprintf(const char *format, ...) may_throw attribute_format(1, 2);
 
+//
 // noexcept variants (these use "assert_noexcept")
+//
+
 noinline char *upx_safe_strdup_noexcept(const char *) noexcept;
 noinline upx_rsize_t upx_safe_strlen_noexcept(const char *) noexcept;
 noinline int upx_safe_vsnprintf_noexcept(char *str, upx_rsize_t max_size, const char *format,
                                          va_list ap) noexcept;
+noinline int upx_safe_snprintf_noexcept(char *str, upx_rsize_t max_size, const char *format,
+                                        ...) noexcept attribute_format(3, 4);
 
 //
 // globally redirect some functions

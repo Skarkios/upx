@@ -45,8 +45,10 @@ static const CLANG_FORMAT_DUMMY_STATEMENT
 
 PackDjgpp2::PackDjgpp2(InputFile *f) : super(f), coff_offset(0) {
     bele = &N_BELE_RTP::le_policy;
+    COMPILE_TIME_ASSERT(sizeof(dos_header_t) == 64)
     COMPILE_TIME_ASSERT(sizeof(external_scnhdr_t) == 40)
     COMPILE_TIME_ASSERT(sizeof(coff_header_t) == 0xa8)
+    COMPILE_TIME_ASSERT_ALIGNED1(dos_header_t)
     COMPILE_TIME_ASSERT_ALIGNED1(external_scnhdr_t)
     COMPILE_TIME_ASSERT_ALIGNED1(coff_header_t)
     COMPILE_TIME_ASSERT(sizeof(stub_i386_dos32_djgpp2_stubify) == 2048)

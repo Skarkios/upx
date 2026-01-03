@@ -428,7 +428,7 @@ using type_identity_t = typename type_identity<T>::type;
 **************************************************************************/
 
 template <class T>
-forceinline constexpr bool has_single_bit(T x) noexcept {
+forceinline constexpr bool has_single_bit(const T &x) noexcept {
     return !(x == 0) && (x & (x - 1)) == 0;
 }
 

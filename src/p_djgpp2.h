@@ -60,8 +60,6 @@ protected:
     virtual void buildLoader(const Filter *ft) override;
     virtual Linker *newLinker() const override;
 
-    unsigned coff_offset;
-
     // based on https://dox.ipxe.org/PeImage_8h_source.html
     struct alignas(1) dos_header_t {
         LE16 e_magic;
@@ -69,7 +67,7 @@ protected:
         LE16 e_cp;      // Pages in file
         LE16 e_crlc;    // Relocations
         LE16 e_cparhdr; // Size of header in paragraphs
-        LE16 e_OMITTED[32 - 5 * 2];
+        LE16 e_OMITTED[32 - 5];
     }; // 64 bytes
 
     struct alignas(1) external_scnhdr_t {
@@ -103,6 +101,8 @@ protected:
         // section headers
         external_scnhdr_t sh[3];
     };
+
+    unsigned coff_offset = 0;
 
     coff_header_t coff_hdr;
     external_scnhdr_t *text = nullptr;

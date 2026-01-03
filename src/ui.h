@@ -36,7 +36,7 @@ class PackerBase;
 
 class UiPacker final {
 public:
-    explicit UiPacker(const PackerBase *);
+    explicit noinline UiPacker(const PackerBase *);
 
 public:
     virtual ~UiPacker() noexcept;

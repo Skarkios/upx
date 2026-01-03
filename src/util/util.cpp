@@ -90,6 +90,7 @@ upx_rsize_t mem_size(upx_uint64_t element_size, upx_uint64_t n, upx_uint64_t ext
 TEST_CASE("mem_size") {
     mem_size_assert(1, 0);
     mem_size_assert(1, 0x30000000);
+    CHECK_THROWS(mem_size_assert(1, 0x30000000 + 1));
     mem_size_assert_noexcept(1, 0);
     mem_size_assert_noexcept(1, 0x30000000);
     CHECK(mem_size_valid(1, 0));
