@@ -97,7 +97,9 @@ F_EOFSRC=6*NBPW; F_ENTR= F_EOFSRC; F_PMASK= F_EOFSRC
 	andi lztmp,lztmp,0xf; sb lztmp,0(arg1)  // store lit_context_bits
 	addi arg4,arg1,-szSizeT  // &inSizeProcessed
 
-	jal lzma_code
+	jal lzma_code     # a0= rv (0 ==> success)
+	ld a1,0*NBPW(sp)  # outSizeProcessed
+	ld a2,1*NBPW(sp)  #  inSizeProcessed
 
 	mv sp,s0  // de-alloca()
 	j eof_lzma

@@ -139,6 +139,8 @@ not_lzma:
   .globl eof
 
 eof_lzma: .globl eof_lzma
+    sd a1,F_EOFDST(sp)  # outSizeProcessed
+    mv s1,a1
     sd rv,F_EOFSRC(sp)  # rv of de-compression
     j eof_all
 eof_n2b:
