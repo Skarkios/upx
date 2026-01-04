@@ -151,8 +151,8 @@
 // RISC-V AUIPC
 **************************************************************************/
 
-#define F          f_auipc_le
-#define U          u_auipc_le
+#define F f_auipc_le
+#define U u_auipc_le
 #include "auipc.h"
 #undef U
 #undef F
