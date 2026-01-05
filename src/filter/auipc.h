@@ -119,7 +119,7 @@ static int F(Filter *f) {
             lastcall = ic;
             ++calls;
         }
-	else {
+        else {
             ++noncalls;  // not the best benefits
             // but shuffle bits anyway, to make unfilter easy
         }
@@ -193,14 +193,14 @@ static int U(Filter *f) {
             lastcall = ic;
             ++calls;
         }
-	else {
+        else {
             ++noncalls;
         }
         ilen = 8;  // next is after word2
 
         int addr = get_be32(1+ic+b);  // Note BIG_ENDIAN fetch at 1-byte offset
         addr = (~0xff & addr) | ((0x7f& addr) <<1) | (1& (word1 >>7));
-	addr -= ic;
+        addr -= ic;
         addr += ((1u <<11)& addr) <<1;  // 12-bit imm is sign-extended
 
         set_le32(0+ic+b, (~0xfff& addr) | (r_aui <<7) | AUIPC);
