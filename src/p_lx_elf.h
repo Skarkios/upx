@@ -558,7 +558,7 @@ public:
     virtual ~PackLinuxElf64riscv64();
     virtual int getFormat() const override { return UPX_F_LINUX_ELF64_RISCV64; }
     virtual const char *getName() const override { return "linux/riscv64"; }
-    virtual const char *getFullName(const options_t *) const override { return "riscv6464-linux.elf"; }
+    virtual const char *getFullName(const options_t *) const override { return "riscv64-linux.elf"; }
     virtual const int *getFilters() const override;
 protected:
     virtual void pack1(OutputFile *, Filter &) override;  // generate executable header

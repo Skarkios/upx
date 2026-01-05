@@ -337,6 +337,9 @@ struct CheckIntegral {
     };
     template <class U>
     static noinline void checkU() noexcept {
+        // UPX extras
+        static_assert(upx_is_integral<U>::value);
+        static_assert(upx_is_integral_v<U>);
 #if __cplusplus <= 201703L
         static_assert(std::is_pod<U>::value); // std::is_pod is deprecated in C++20
 #endif
@@ -349,9 +352,6 @@ struct CheckIntegral {
         static_assert(std::is_nothrow_destructible<U>::value);
         static_assert(std::is_trivially_copyable<U>::value);
         static_assert(std::is_trivially_default_constructible<U>::value);
-        // UPX extras
-        static_assert(upx_is_integral<U>::value);
-        static_assert(upx_is_integral_v<U>);
         {
             U a = {};
             const U b = {};
@@ -461,7 +461,7 @@ struct CheckIntegral {
 
 template <class T>
 struct CheckAlignment {
-    static void check() noexcept {
+    static noinline void check() noexcept {
         COMPILE_TIME_ASSERT_ALIGNED1(T)
         struct alignas(1) Test1 {
             char a;
