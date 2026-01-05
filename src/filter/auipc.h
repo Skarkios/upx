@@ -50,9 +50,18 @@
 +--------------------+--------------------+-------------------+--+------------+
 |    addr_mid_lo     |    addr_mid_hi     |     addr_MSB      |a0|   AUIPC    |
 +-----------+--------+------------+-------+--------+----------+--+------------+
-|   r_aui   |  func3 |     rd     |    opcode      |    r_aui    | a_lsB[7:1] |
+|    rs1    |  func3 |     rd     |    opcode      |    r_aui    | a_lsB[7:1] |
 +-----------+--------+------------+----------------+-------------+------------+
  31       27 26    24 23        19 18            12 11          7 6          0
+
+ where 'addr' has its top 20 bits from word1 and its bottom 12 bits from the
+ top 12 bits of word2, even if the opcode of word2 does not have top 12 bits
+ of immediate and rs1 the same as r_aui.  Why? to make unfiltering reliable
+ and easy.  The effect of AUIPC is included in 'addr' by adding the buffer
+ offset of word1, which makes 'addr' absolute, and thus more compressable.
+ Unfiltering need only re-constitute 'addr' from big-endian, subtract the
+ buffer offset, and re-position the bits.
+
 #endif  //}
 
 #ifndef CONDf //{ once-only during multiple #include of this file
@@ -101,41 +110,26 @@ static int F(Filter *f) {
                 // NYI: 8 bytes or longer
             }
         }
-        if (!COND(word1)) {
+        if (!COND(word1)) { // not interesting at all
             continue;
         }
-        int r_aui = rd(word1);
         int word2 = get_le32(4+ic+b);
-        if (!CONDf(word2, r_aui)) {
-            ++noncalls;
-            continue;
-        }
-        ilen = 8; // next is after word2
-        // Filtering requires displacement < 1GB
-        // becase top 2 bits of addr are used as markers.
-#ifdef U  //{ filtering
-        int addr = ((~0xfff& word1) + (word2 >>20));  // sign extend imm
-#endif  //}
-        if (((word1 <<1) ^ word1) < 0) {
-            // Incoming top 2 bits are unequal, so the displacment is >= 1GB.
-            ++noncalls;
-        }
-        else {
-            // Incoming top 2 bits are the same, so the displacement is < 1GB.
-#ifdef U  //{ filtering
-            addr += ic;  // AUIPC result value
-#endif  //}
+        int r_aui = rd(word1);
+        if (CONDf(word2, r_aui)) {
             lastcall = ic;
             ++calls;
         }
+	else {
+            ++noncalls;  // not the best benefits
+            // but shuffle bits anyway, to make unfilter easy
+        }
+        ilen = 8; // next is after word2
 #ifdef U  //{ filtering
-        *(0+ic+b) = ((1& addr) <<7) | AUIPC;  // lo bit of addr adjacent to AUIPC
-                                              //
-        // The filtered output has the true hoisted address.
-        //addr += ((1u <<11)& addr) <<1;
+        int addr = (~0xfff& word1) + (word2 >>20);  // sign extend imm
+        addr += ic;  // AUIPC result value: the true "hoisted" address
 
-        addr ^= (1u<<31);  // change parity of top 2 bits
-        set_be32(1+ic+b, addr);  // Note BIG_ENDIAN store
+        *(0+ic+b) = ((1& addr) <<7) | AUIPC;  // lo bit of addr next to AUIPC
+        set_be32(1+ic+b, addr);  // Note BIG_ENDIAN store at offset of 1 byte
         set_le32(4+ic+b, (word2 <<12) | (r_aui <<7) | (0x7f& (addr >>1)));
         if (0) { // DEBUG
             char line[100];
@@ -192,31 +186,23 @@ static int U(Filter *f) {
         }
         int word2 = get_le32(4+ic+b);
         int r_aui = 037& (word2 >> 7);
-        if (!(AUIPC==opf(word1))) {
+        if (!COND(word1)) { // not interesting at all
             continue;
         }
-        if (!CONDu(word2, r_aui)) {
-            ++noncalls;
-            continue;
-        }
-        ilen = 8;  // next is after word2
-
-        int addr = get_be32(1+ic+b);  // Note BIG_ENDIAN fetch
-        addr = (~0xff & addr) | ((0x7f& addr) <<1) | (1& (word1 >>7));
-        if (((addr<<1) ^ addr) < 0) {
-            // Incoming top 2 bits differ (original top 2 bits are equal),
-            // so the displacment is < 1GB, and filtering hoisted the AUIPC
-            addr -= ic;  // un-hoist the effect of AUIPC
+        if (CONDu(word2, r_aui)) {
             lastcall = ic;
             ++calls;
         }
-        else {
-            // Incoming top 2 bits are equal (original top 2 bits differ)
-            // so the displacement is >= 1GB, and filtering did not change addr.
+	else {
             ++noncalls;
         }
+        ilen = 8;  // next is after word2
+
+        int addr = get_be32(1+ic+b);  // Note BIG_ENDIAN fetch at 1-byte offset
+        addr = (~0xff & addr) | ((0x7f& addr) <<1) | (1& (word1 >>7));
+	addr -= ic;
         addr += ((1u <<11)& addr) <<1;  // 12-bit imm is sign-extended
-        addr ^= (1u<<31);  // change parity of top 2 bits
+
         set_le32(0+ic+b, (~0xfff& addr) | (r_aui <<7) | AUIPC);
         set_le32(4+ic+b,    (addr <<20) | ((unsigned)word2 >>12));
         if (0) { // DEBUG
