@@ -469,9 +469,9 @@ void show_version(bool one_line) {
     fprintf(f, "doctest C++ testing framework version %s\n", DOCTEST_VERSION_STR);
 #endif
     // clang-format off
-    fprintf(f, "Copyright (C) 1996-2025 Markus Franz Xaver Johannes Oberhumer\n");
-    fprintf(f, "Copyright (C) 1996-2025 Laszlo Molnar\n");
-    fprintf(f, "Copyright (C) 2000-2025 John F. Reiser\n");
+    fprintf(f, "Copyright (C) 1996-2026 Markus Franz Xaver Johannes Oberhumer\n");
+    fprintf(f, "Copyright (C) 1996-2026 Laszlo Molnar\n");
+    fprintf(f, "Copyright (C) 2000-2026 John F. Reiser\n");
 #if (WITH_ZLIB)
     // see vendor/zlib/LICENSE
     fprintf(f, "Copyright (C) 1995" "-2024 Jean-loup Gailly and Mark Adler\n");
