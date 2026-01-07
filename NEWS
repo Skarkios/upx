@@ -2,7 +2,7 @@
 User visible changes for UPX
 ==================================================================
 
-Changes in 5.1.0 (XX XXX XXXX):
+Changes in 5.1.0 (07 Jan 2026):
   * ELF: new format linux/riscv64
   * bug fixes - see https://github.com/upx/upx/milestone/21
 
