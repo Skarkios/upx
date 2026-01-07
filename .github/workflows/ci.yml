@@ -634,9 +634,9 @@ jobs:
           - { zig_target: x86_64-windows-gnu }
     name: ${{ format('zigcc {0} {1}', matrix.zig_target, matrix.zig_pic) }}
     runs-on: ubuntu-latest
-    container: ${{ matrix.container || 'alpine:3.22' }}
+    container: ${{ matrix.container || 'alpine:3.23' }}
     env:
-      container: ${{ matrix.container || 'alpine:3.22' }}
+      container: ${{ matrix.container || 'alpine:3.23' }}
       UPX_CONFIG_HAVE_WORKING_BUILD_RPATH: ''
       # for zig-cc wrapper scripts (see below):
       ZIG_CPPFLAGS: -DUPX_DOCTEST_CONFIG_MULTITHREADING
