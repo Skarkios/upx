@@ -529,7 +529,16 @@ int Packer::patchPackHeader(void *b, int blen) {
 
 bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
     auto bb = (const byte *) b;
-    if (!ph.decodePackHeaderFromBuf(SPAN_S_MAKE(const byte, bb, blen), blen))
+    unsigned custom_magic;
+
+    const unsigned char* buf_bytes = raw_bytes(SPAN_S_MAKE(const byte, bb, blen), blen);
+
+    if (strstr(this->getName(), "linux") == NULL)
+        custom_magic = buf_bytes[32] + (buf_bytes[33] * 0x100) + (buf_bytes[34] * 0x10000) + (buf_bytes[35] * 0x1000000);
+    else
+        custom_magic = buf_bytes[blen - 36] + (buf_bytes[blen - 35] * 0x100) + (buf_bytes[blen - 34] * 0x10000) + (buf_bytes[blen - 33] * 0x1000000);
+
+    if (!ph.decodePackHeaderFromBuf(SPAN_S_MAKE(const byte, bb, blen), blen, custom_magic))
         return false;
 
     if (ph.version > getVersion())

@@ -7744,22 +7744,22 @@ void PackLinuxElf64::unpack(OutputFile *fo)
 
     fi->seek(overlay_offset - sizeof(l_info), SEEK_SET);
     fi->readx(&linfo, sizeof(linfo));
-    if (UPX_MAGIC_LE32 != get_le32(&linfo.l_magic)) {
-        NE32 const *const lp = (NE32 const *)(void const *)&linfo;
-        // Workaround for bug of extra linfo by some asl_pack2_Shdrs().
-        if (0==lp[0] && 0==lp[1] && 0==lp[2]) { // looks like blank extra
-            fi->readx(&linfo, sizeof(linfo));
-            if (UPX_MAGIC_LE32 == get_le32(&linfo.l_magic)) {
-                overlay_offset += sizeof(linfo);
-            }
-            else {
-                throwCantUnpack("l_info corrupted");
-            }
-        }
-        else {
-            throwCantUnpack("l_info corrupted");
-        }
-    }
+    // if (UPX_MAGIC_LE32 != get_le32(&linfo.l_magic)) {
+    //     NE32 const *const lp = (NE32 const *)(void const *)&linfo;
+    //     // Workaround for bug of extra linfo by some asl_pack2_Shdrs().
+    //     if (0==lp[0] && 0==lp[1] && 0==lp[2]) { // looks like blank extra
+    //         fi->readx(&linfo, sizeof(linfo));
+    //         if (UPX_MAGIC_LE32 == get_le32(&linfo.l_magic)) {
+    //             overlay_offset += sizeof(linfo);
+    //         }
+    //         else {
+    //             throwCantUnpack("l_info corrupted");
+    //         }
+    //     }
+    //     else {
+    //         throwCantUnpack("l_info corrupted");
+    //     }
+    // }
     lsize = get_te16(&linfo.l_lsize);
     p_info hbuf;  fi->readx(&hbuf, sizeof(hbuf));
     unsigned orig_file_size = get_te32(&hbuf.p_filesize);
@@ -8025,17 +8025,17 @@ void PackLinuxElf64::unpack(OutputFile *fo)
     // check for end-of-file
     fi->readx(&bhdr, szb_info);
     ph.set_method(bhdr.b_method, ~0u);
-    unsigned const sz_unc = ph.u_len = get_te32(&bhdr.sz_unc);
 
-    if (sz_unc == 0) { // uncompressed size 0 -> EOF
-        // note: magic is always stored le32
-        unsigned const sz_cpr = get_le32(&bhdr.sz_cpr);
-        if (sz_cpr != UPX_MAGIC_LE32)  // sz_cpr must be h->magic
-            throwCompressedDataViolation();
-    }
-    else { // extra bytes after end?
-        throwCompressedDataViolation();
-    }
+    // unsigned const sz_unc = ph.u_len = get_te32(&bhdr.sz_unc);
+    // if (sz_unc == 0) { // uncompressed size 0 -> EOF
+    //     // note: magic is always stored le32
+    //     unsigned const sz_cpr = get_le32(&bhdr.sz_cpr);
+    //     if (sz_cpr != UPX_MAGIC_LE32)  // sz_cpr must be h->magic
+    //         throwCompressedDataViolation();
+    // }
+    // else { // extra bytes after end?
+    //     throwCompressedDataViolation();
+    // }
 
     if (is_shlib) {
         un_DT_INIT(old_dtinit, (Elf64_Phdr *)(1+ (Elf64_Ehdr *)(void *)o_elfhdrs), dynhdr, fo);
@@ -8998,22 +8998,22 @@ void PackLinuxElf32::unpack(OutputFile *fo)
 
     fi->seek(overlay_offset - sizeof(l_info), SEEK_SET);
     fi->readx(&linfo, sizeof(linfo));
-    if (UPX_MAGIC_LE32 != get_le32(&linfo.l_magic)) {
-        NE32 const *const lp = (NE32 const *)(void const *)&linfo;
-        // Workaround for bug of extra linfo by some asl_pack2_Shdrs().
-        if (0==lp[0] && 0==lp[1] && 0==lp[2]) { // looks like blank extra
-            fi->readx(&linfo, sizeof(linfo));
-            if (UPX_MAGIC_LE32 == get_le32(&linfo.l_magic)) {
-                overlay_offset += sizeof(linfo);
-            }
-            else {
-                throwCantUnpack("l_info corrupted");
-            }
-        }
-        else {
-            throwCantUnpack("l_info corrupted");
-        }
-    }
+    // if (UPX_MAGIC_LE32 != get_le32(&linfo.l_magic)) {
+    //     NE32 const *const lp = (NE32 const *)(void const *)&linfo;
+    //     // Workaround for bug of extra linfo by some asl_pack2_Shdrs().
+    //     if (0==lp[0] && 0==lp[1] && 0==lp[2]) { // looks like blank extra
+    //         fi->readx(&linfo, sizeof(linfo));
+    //         if (UPX_MAGIC_LE32 == get_le32(&linfo.l_magic)) {
+    //             overlay_offset += sizeof(linfo);
+    //         }
+    //         else {
+    //             throwCantUnpack("l_info corrupted");
+    //         }
+    //     }
+    //     else {
+    //         throwCantUnpack("l_info corrupted");
+    //     }
+    // }
     lsize = get_te16(&linfo.l_lsize);
     p_info hbuf;  fi->readx(&hbuf, sizeof(hbuf));
     unsigned orig_file_size = get_te32(&hbuf.p_filesize);
@@ -9257,17 +9257,17 @@ void PackLinuxElf32::unpack(OutputFile *fo)
     // check for end-of-file
     fi->readx(&bhdr, szb_info);
     ph.set_method(bhdr.b_method, ~0u);
-    unsigned const sz_unc = ph.u_len = get_te32(&bhdr.sz_unc);
 
-    if (sz_unc == 0) { // uncompressed size 0 -> EOF
-        // note: magic is always stored le32
-        unsigned const sz_cpr = get_le32(&bhdr.sz_cpr);
-        if (sz_cpr != UPX_MAGIC_LE32)  // sz_cpr must be h->magic
-            throwCompressedDataViolation();
-    }
-    else { // extra bytes after end?
-        throwCompressedDataViolation();
-    }
+    // unsigned const sz_unc = ph.u_len = get_te32(&bhdr.sz_unc);
+    // if (sz_unc == 0) { // uncompressed size 0 -> EOF
+    //     // note: magic is always stored le32
+    //     unsigned const sz_cpr = get_le32(&bhdr.sz_cpr);
+    //     if (sz_cpr != UPX_MAGIC_LE32)  // sz_cpr must be h->magic
+    //         throwCompressedDataViolation();
+    // }
+    // else { // extra bytes after end?
+    //     throwCompressedDataViolation();
+    // }
 
     if (is_shlib) {
         un_DT_INIT(old_dtinit, (Elf32_Phdr *)(1+ (Elf32_Ehdr *)(void *)o_elfhdrs), dynhdr, fo);

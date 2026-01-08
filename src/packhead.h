@@ -44,7 +44,7 @@ struct PackHeader final {
     int getPackHeaderSize() const;
 
     void putPackHeader(SPAN_S(byte) p) const;
-    bool decodePackHeaderFromBuf(SPAN_S(const byte) b, int blen);
+    bool decodePackHeaderFromBuf(SPAN_S(const byte) b, int blen, unsigned magic);
 
     // fields stored in compressed file => see stub/src/include/header.S
     // enum { magic = UPX_MAGIC_LE32 };

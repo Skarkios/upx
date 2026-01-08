@@ -59,9 +59,13 @@ int PackHeader::set_method(int m, unsigned offset) {
 // extremely simple checksum for the header itself (since version 10)
 **************************************************************************/
 
-static upx_uint8_t get_packheader_checksum(SPAN_S(const byte) buf, int blen) {
+static upx_uint8_t get_packheader_checksum(SPAN_S(const byte) buf, int blen, unsigned custom_magic) {
     assert(blen >= 4);
-    assert(get_le32(buf) == UPX_MAGIC_LE32);
+    if (custom_magic == UPX_MAGIC_LE32) {
+        assert(get_le32(buf) == UPX_MAGIC_LE32);
+    } else {
+        assert(get_le32(buf) == custom_magic);
+    }
     buf += 4;
     blen -= 4;
     unsigned c = 0;
@@ -124,13 +128,13 @@ void PackHeader::putPackHeader(SPAN_S(byte) p) const {
     if (format < 128) { // little endian
         if (format == UPX_F_DOS_COM || format == UPX_F_DOS_SYS) {
             size = 22;
-            old_chksum = get_packheader_checksum(p, size - 1);
+            old_chksum = get_packheader_checksum(p, size - 1, UPX_MAGIC2_LE32);
             set_le16(p + 16, u_len);
             set_le16(p + 18, c_len);
             p[20] = (byte) filter;
         } else if (format == UPX_F_DOS_EXE) {
             size = 27;
-            old_chksum = get_packheader_checksum(p, size - 1);
+            old_chksum = get_packheader_checksum(p, size - 1, UPX_MAGIC2_LE32);
             set_le24(p + 16, u_len);
             set_le24(p + 19, c_len);
             set_le24(p + 22, u_file_size);
@@ -139,7 +143,7 @@ void PackHeader::putPackHeader(SPAN_S(byte) p) const {
             throwInternalError("invalid format");
         } else {
             size = 32;
-            old_chksum = get_packheader_checksum(p, size - 1);
+            old_chksum = get_packheader_checksum(p, size - 1, UPX_MAGIC2_LE32);
             set_le32(p + 16, u_len);
             set_le32(p + 20, c_len);
             set_le32(p + 24, u_file_size);
@@ -152,7 +156,7 @@ void PackHeader::putPackHeader(SPAN_S(byte) p) const {
         set_le32(p + 12, c_adler);
     } else { // big endian
         size = 32;
-        old_chksum = get_packheader_checksum(p, size - 1);
+        old_chksum = get_packheader_checksum(p, size - 1, UPX_MAGIC2_LE32);
         set_be32(p + 8, u_len);
         set_be32(p + 12, c_len);
         set_be32(p + 16, u_adler);
@@ -179,15 +183,15 @@ void PackHeader::putPackHeader(SPAN_S(byte) p) const {
         }
     }
     // store new header_checksum
-    p[size - 1] = get_packheader_checksum(p, size - 1);
+    p[size - 1] = get_packheader_checksum(p, size - 1, UPX_MAGIC2_LE32);
 }
 
 /*************************************************************************
 //
 **************************************************************************/
 
-bool PackHeader::decodePackHeaderFromBuf(SPAN_S(const byte) buf, int blen) {
-    int boff = find_le32(raw_bytes(buf, blen), blen, UPX_MAGIC_LE32);
+bool PackHeader::decodePackHeaderFromBuf(SPAN_S(const byte) buf, int blen, unsigned magic) {
+    int boff = find_le32(raw_bytes(buf, blen), blen, magic);
     if (boff < 0)
         return false;
     blen -= boff; // bytes remaining in buf
@@ -279,7 +283,7 @@ bool PackHeader::decodePackHeaderFromBuf(SPAN_S(const byte) buf, int blen) {
     // check header_checksum
     if (version >= 10) {
         int size = getPackHeaderSize(); // expected; based on format and version
-        if (size > blen || p[size - 1] != get_packheader_checksum(p, size - 1))
+        if (size > blen || p[size - 1] != get_packheader_checksum(p, size - 1, magic))
             throwCantUnpack("header corrupted 3");
     }
     if (c_len < 2 || u_len < 2 || !mem_size_valid_bytes(c_len) || !mem_size_valid_bytes(u_len))
