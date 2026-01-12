@@ -192,11 +192,11 @@ void PackHeader::putPackHeader(SPAN_S(byte) p) const {
 
 bool PackHeader::decodePackHeaderFromBuf(SPAN_S(const byte) buf, int blen, unsigned magic) {
     int boff = find_le32(raw_bytes(buf, blen), blen, magic);
+    if (opt->debug.debug_level) {
+        fprintf(stderr, "  magix header %x found at offset %d in buffer of size %d\n", magic, boff, blen);
+    }
     if (boff < 0)
         return false;
-    if (opt->debug.debug_level) {
-        fprintf(stderr, "  magix header %x found at offset %d in buffer of size %d\n", magic, boff, blen);  
-    }
     blen -= boff; // bytes remaining in buf
     if (blen < 20)
         throwCantUnpack("header corrupted 1");

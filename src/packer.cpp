@@ -530,12 +530,12 @@ int Packer::patchPackHeader(void *b, int blen) {
 bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
     auto bb = (const byte *) b;
     unsigned custom_magic;
-
+    
     const unsigned char* buf_bytes = raw_bytes(SPAN_S_MAKE(const byte, bb, blen), blen);
     if (opt->debug.debug_level) {
-        fprintf(stderr, "  detected format: %s\n", this->getName());   
+        fprintf(stderr, "  trying to get header in arch: %s\n", this->getName());
     }
-    if (strstr(this->getName(), "win") != NULL)
+    if (strcmp(this->getName(),"win32/pe") == 0 || strcmp(this->getName(),"win64/pe") == 0)
         custom_magic = buf_bytes[32] + (buf_bytes[33] * 0x100) + (buf_bytes[34] * 0x10000) + (buf_bytes[35] * 0x1000000);
     else if (strcmp(this->getName(),"linux/i386") == 0 || strcmp(this->getName(),"linux/amd64") == 0)
         custom_magic = buf_bytes[blen - 36] + (buf_bytes[blen - 35] * 0x100) + (buf_bytes[blen - 34] * 0x10000) + (buf_bytes[blen - 33] * 0x1000000);
@@ -543,7 +543,6 @@ bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
         custom_magic = UPX_MAGIC_LE32;
     if (!ph.decodePackHeaderFromBuf(SPAN_S_MAKE(const byte, bb, blen), blen, custom_magic))
         return false;
-
     if (ph.version > getVersion())
         throwCantUnpack("need a newer version of UPX");
     // Some formats might be able to unpack old versions because
@@ -551,7 +550,6 @@ bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
     if (opt->cmd != CMD_FILEINFO)
         if (!testUnpackVersion(ph.version))
             return false;
-
     if (ph.c_len > ph.u_len || (ph.c_len == ph.u_len && !allow_incompressible) ||
         ph.c_len >= file_size_u || ph.version <= 0 || ph.version >= 0xff)
         throwCantUnpack("header corrupted");
@@ -567,7 +565,7 @@ bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
     }
     if (!isValidCompressionMethod(ph.method))
         throwCantUnpack("unknown compression method (try a newer version of UPX)");
-
+    fprintf(stderr, "middle 3");
     // Some formats might be able to unpack "subformats". Ask them.
     if (!testUnpackFormat(ph.format))
         return false;
