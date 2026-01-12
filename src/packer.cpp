@@ -565,7 +565,6 @@ bool Packer::getPackHeader(const void *b, int blen, bool allow_incompressible) {
     }
     if (!isValidCompressionMethod(ph.method))
         throwCantUnpack("unknown compression method (try a newer version of UPX)");
-    fprintf(stderr, "middle 3");
     // Some formats might be able to unpack "subformats". Ask them.
     if (!testUnpackFormat(ph.format))
         return false;
